@@ -24,3 +24,14 @@ class DataHandler:
         result = await self.level_collection.delete_one({'code': level_code})
         return result.deleted_count
 
+    async def get_level(self, level_code):
+        level = await self.level_collection.find_one({'code': level_code})
+        return level
+
+    async def attach_post_to_level(self, level_code, post_id):
+        result = await self.level_collection.update_one(
+            {'code': level_code},
+            {'$set': {'forum_post_id': post_id}}
+        )
+        return result.modified_count
+

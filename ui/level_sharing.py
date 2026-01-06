@@ -21,6 +21,16 @@ class CocreatorSelectMenu(discord.ui.UserSelect):
         except discord.NotFound:
             pass
 
+class RemoveLevelModal(discord.ui.Modal, title="Remove Level"):
+    code = discord.ui.TextInput(label="Level Code", placeholder="Enter the code of the level you wish to remove")
+
+    def __init__(self, callback):
+        super().__init__()
+        self.callback = callback
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await self.callback(interaction, self.code.value)
+
 class LevelConfigModal(discord.ui.Modal, title="Post Level"):
     imgur = discord.ui.TextInput(label="Imgur Link", placeholder="Enter the Imgur link for the level")
 
@@ -78,7 +88,6 @@ class ModeSelectionView(discord.ui.View):
 
     async def add_creator(self, creator):
         self.creators.append(creator)
-        print(self.creators)
 
     async def toggle_party_mode(self, interaction: discord.Interaction):
         self.type = 'Party'
@@ -147,6 +156,21 @@ class LevelSharingView(discord.ui.View):
             )
 
     async def remove_level(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Remove level not implemented yet.", ephemeral=True)
+        modal = RemoveLevelModal(self.handle_remove_level)
+        await interaction.response.send_modal(modal)    
 
+    async def handle_remove_level(self, interaction: discord.Interaction, code: str):
+        await interaction.response.defer(ephemeral=True)
 
+        level_removed = await self.bot.remove_level(code, interaction.user)
+
+        if level_removed:
+            await interaction.followup.send(
+                f"Level with code {code} has been removed.",
+                ephemeral=True
+            )
+        else:
+            await interaction.followup.send(
+                f"Failed to remove level with code {code}: Level does not exist or you are not a creator.",
+                ephemeral=True
+            )

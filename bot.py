@@ -64,6 +64,25 @@ class LVLNetBot(commands.Bot):
             applied_tags=[forum_tag]
         )
 
+        await self.dh.attach_post_to_level(level_data['code'], post.thread.id)
+
+        return True
+
+    async def remove_level(self, code, user):
+        level = await self.dh.get_level(code)
+        if not level:
+            return False
+
+        if user.id not in level['creators']:
+            return False
+
+        forum_channel_id = int(os.getenv('LEVEL_FORUM_CHANNEL_ID'))
+        forum_channel = discord.utils.get(self.guild.forums, id=forum_channel_id)
+
+        thread = self.get_channel(level['forum_post_id'])
+        if thread:
+            await thread.delete()
+        await self.dh.remove_level(code)
         return True
 
 if __name__ == "__main__":
