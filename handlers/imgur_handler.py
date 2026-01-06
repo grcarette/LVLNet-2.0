@@ -7,9 +7,6 @@ class ImgurHandler:
         self.bot = bot
 
     async def get_imgur_data(self, url):
-        """
-        Returns the user-provided title and description of an Imgur post asynchronously.
-        """
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
@@ -17,7 +14,6 @@ class ImgurHandler:
 
             await page.wait_for_selector("h1.Post-title, div.Gallery-Content--descr", timeout=5000)
 
-            # Title
             title_el = await page.query_selector("h1.Post-title")
             if title_el:
                 title = (await title_el.inner_text()).strip()
@@ -34,7 +30,6 @@ class ImgurHandler:
                 else:
                     title = "No title"
 
-            # Description
             desc_el = await page.query_selector("div.Gallery-Content--descr") or await page.query_selector("meta[property='og:description']")
             if desc_el:
                 tag_name = await desc_el.evaluate("el => el.tagName")

@@ -29,9 +29,13 @@ class LVLNetBot(commands.Bot):
         level_sharing_channel_id = int(os.getenv('LEVEL_SHARING_CHANNEL_ID'))
         await self.uh.initialize(level_sharing_channel_id)
 
+    async def verify_code(self, code):
+        if not code[5] == '-' and len(code) == 9:
+            return False
+
     async def post_level(self, imgur_url, mode, creators):
         imgur_data = await self.ih.get_imgur_data(imgur_url)
-        if not imgur_data:
+        if not imgur_data or not await self.verify_code(imgur_data['code']):
             return False
 
         creator_names = ", ".join(user.display_name for user in creators)
@@ -42,7 +46,8 @@ class LVLNetBot(commands.Bot):
             'name': imgur_data['title'],
             'code': imgur_data['code'],
             'mode': mode,
-            'creators': creator_ids
+            'creators': creator_ids,
+            'tournament_legal': false
         }
 
         level_added = await self.dh.add_level(level_data)
