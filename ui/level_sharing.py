@@ -1,4 +1,25 @@
 import discord
+import asyncio
+
+class CocreatorSelectMenu(discord.ui.UserSelect):
+    def __init__(self, secondary_callback):
+        super().__init__()
+        self.secondary_callback = secondary_callback
+    
+    async def callback(self, interaction: discord.Interaction):
+        selected_user = self.values[0]
+        await self.secondary_callback(selected_user.display_name)
+        message = await interaction.response.send_message(f"Added {selected_user.mention}", ephemeral=True)
+        message_obj = await interaction.original_response()
+
+        asyncio.create_task(self.delete_after(message_obj, 1.5))
+
+    async def delete_after(self, message, delay):
+        await asyncio.sleep(delay)
+        try: 
+            await message.delete()
+        except discord.NotFound:
+            pass
 
 class LevelConfigModal(discord.ui.Modal, title="Post Level"):
     imgur = discord.ui.TextInput(label="Imgur Link", placeholder="Enter the Imgur link for the level")
@@ -10,13 +31,20 @@ class LevelConfigModal(discord.ui.Modal, title="Post Level"):
     async def on_submit(self, interaction: discord.Interaction):
         await self.callback(interaction, self.imgur.value)
 
-
 class ModeSelectionView(discord.ui.View):
-    def __init__(self, imgur_link, user_id, callback, timeout=300):
+    def __init__(self, imgur_link, user, callback, timeout=300):
         super().__init__(timeout=timeout)
         self.imgur_link = imgur_link
         self.callback = callback
-        self.creators = [user_id]
+        self.creators = [user.display_name]
+        self.difficulty = None
+
+        self.add_cocreators_button = discord.ui.Button(
+            label="Add Co-Creators",
+            style=discord.ButtonStyle.primary
+        )
+        self.add_cocreators_button.callback = self.add_cocreators
+        self.add_item(self.add_cocreators_button)
 
         self.party_button = discord.ui.Button(
             label="Party Mode", 
@@ -24,12 +52,14 @@ class ModeSelectionView(discord.ui.View):
             )
         self.party_button.callback = self.toggle_party_mode
         self.add_item(self.party_button)
+
         self.challenge_button = discord.ui.Button(
             label="Challenge Mode", 
             style=discord.ButtonStyle.secondary
             )
         self.challenge_button.callback = self.toggle_challenge_mode
         self.add_item(self.challenge_button)
+
         self.submit_button = discord.ui.Button(
             label="Submit", 
             style=discord.ButtonStyle.success, 
@@ -38,8 +68,21 @@ class ModeSelectionView(discord.ui.View):
         self.submit_button.callback = self.submit_level
         self.add_item(self.submit_button)
 
+    async def add_cocreators(self, interaction: discord.Interaction):
+        view = discord.ui.View()
+        view.add_item(CocreatorSelectMenu(self.add_creator))
+        await interaction.response.send_message(
+            content="add cocreators:", 
+            view=view, 
+            ephemeral=True)
+
+    async def add_creator(self, creator):
+        self.creators.append(creator)
+        print(self.creators)
+
     async def toggle_party_mode(self, interaction: discord.Interaction):
         self.type = 'Party'
+        self.difficulty = None
         self.party_button.style = discord.ButtonStyle.primary
         self.challenge_button.style = discord.ButtonStyle.secondary
         self.submit_button.disabled = False
@@ -83,9 +126,9 @@ class LevelSharingView(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     async def handle_modal_submission(self, interaction: discord.Interaction, imgur_link: str):
-        view = ModeSelectionView(imgur_link, interaction.user.id, self.handle_mode_selection)
+        view = ModeSelectionView(imgur_link, interaction.user, self.handle_mode_selection)
         await interaction.response.send_message(
-            content="Select the mode for your level:",
+            content="Level Details:",
             view=view,
             ephemeral=True
         )

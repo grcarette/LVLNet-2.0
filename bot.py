@@ -53,12 +53,9 @@ class LVLNetBot(commands.Bot):
         tag_id = MODE_TAGS[mode]
         forum_tag = tag_map[tag_id]
 
-        creator_names = ", ".join(
-            discord.utils.get(self.guild.members, id=uid).display_name if discord.utils.get(self.guild.members, id=uid) else f"Unknown({uid})"
-            for uid in creators
-        )
+        creator_names = ", ".join(user for user in creators)
 
-        title = f"{level_data['code']} - {level_data['title']} - by {creator_names}"
+        title = f"{level_data['code']} - {level_data['name']} - by {creator_names}"
         content = level_data['imgur_url']
         post = await forum_channel.create_thread(
             name=title,
