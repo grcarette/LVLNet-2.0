@@ -14,9 +14,9 @@ class DataHandler:
             'code': level_data['code']
         }
         level = await self.level_collection.find_one(query)
+        print(level)
         if level:
-            return None  # Level already exists
-
+            return False 
 
         result = await self.level_collection.insert_one(level_data)
         return result.inserted_id

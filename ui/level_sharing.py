@@ -56,6 +56,7 @@ class ModeSelectionView(discord.ui.View):
         self.submit_button.disabled = True
         await self.callback(interaction, self.imgur_link, self.type, self.creators)
 
+
 class LevelSharingView(discord.ui.View):
     def __init__(self, bot, timeout=None):
         super().__init__(timeout=timeout)
@@ -95,13 +96,10 @@ class LevelSharingView(discord.ui.View):
         level_posted = await self.bot.post_level(imgur_link, mode, creators)
 
         if level_posted:
-            await interaction.followup.send(
-                f"Level posted successfully",
-                ephemeral=True
-            )
+            await interaction.delete_original_response()
         else:
             await interaction.followup.send(
-                "Failed to post level. Please try again later.",
+                "Failed to post level: Level already exists!\nTry removing it first.",
                 ephemeral=True
             )
 
