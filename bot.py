@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from handlers.data_handler import DataHandler
 from handlers.imgur_handler import ImgurHandler
+from handlers.ui_handler import UIHandler
 
 class LVLNetBot(commands.Bot):
     def __init__(self, command_prefix, intents):
@@ -12,10 +13,16 @@ class LVLNetBot(commands.Bot):
 
         self.dh = DataHandler(self)
         self.ih = ImgurHandler(self)
+        self.uh = UIHandler(self)
+
+        self.level_sharing_channel_id = int(os.getenv('LEVEL_SHARING_CHANNEL_ID'))
 
     async def on_ready(self):
         self.guild = self.guilds[0]
         print("Bot initialized")
+
+        level_sharing_channel_id = int(os.getenv('LEVEL_SHARING_CHANNEL_ID'))
+        await self.uh.initialize(level_sharing_channel_id)
 
 if __name__ == "__main__":
     load_dotenv()
