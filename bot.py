@@ -29,7 +29,7 @@ class LVLNetBot(commands.Bot):
         level_sharing_channel_id = int(os.getenv('LEVEL_SHARING_CHANNEL_ID'))
         await self.uh.initialize(level_sharing_channel_id)
 
-    async def post_level(self, imgur_link, mode, user_id):
+    async def post_level(self, imgur_link, mode, creators):
         imgur_data = await self.ih.get_imgur_data(imgur_link)
         if not imgur_data:
             return False
@@ -42,13 +42,27 @@ class LVLNetBot(commands.Bot):
         tag_id = MODE_TAGS[mode]
         forum_tag = tag_map[tag_id]
 
-        title = f"{imgur_data['code']} - {imgur_data['title']} - by <@{user_id}>"
+        creator_names = ", ".join(
+            discord.utils.get(self.guild.members, id=uid).display_name if discord.utils.get(self.guild.members, id=uid) else f"Unknown({uid})"
+            for uid in creators
+        )
+
+        title = f"{imgur_data['code']} - {imgur_data['title']} - by {creator_names}"
         content = imgur_data['url']
         post = await forum_channel.create_thread(
             name=title,
             content=content,
             applied_tags=[forum_tag]
         )
+
+        level_data = {
+            'imgur_link': imgur_link,
+            'name': imgur_data['title'],
+            'code': imgur_data['code'],
+            'mode': mode,
+            'creators': creators
+        }
+        await self.dh.add_level(level_data)
         return True
 
 if __name__ == "__main__":

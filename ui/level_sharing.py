@@ -12,10 +12,11 @@ class LevelConfigModal(discord.ui.Modal, title="Post Level"):
 
 
 class ModeSelectionView(discord.ui.View):
-    def __init__(self, imgur_link, callback, timeout=60):
+    def __init__(self, imgur_link, user_id, callback, timeout=300):
         super().__init__(timeout=timeout)
         self.imgur_link = imgur_link
         self.callback = callback
+        self.creators = [user_id]
 
         self.party_button = discord.ui.Button(
             label="Party Mode", 
@@ -52,7 +53,8 @@ class ModeSelectionView(discord.ui.View):
         await interaction.response.edit_message(view=self)
 
     async def submit_level(self, interaction: discord.Interaction):
-        await self.callback(interaction, self.imgur_link, self.type)
+        self.submit_button.disabled = True
+        await self.callback(interaction, self.imgur_link, self.type, self.creators)
 
 class LevelSharingView(discord.ui.View):
     def __init__(self, bot, timeout=None):
@@ -80,17 +82,17 @@ class LevelSharingView(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     async def handle_modal_submission(self, interaction: discord.Interaction, imgur_link: str):
-        view = ModeSelectionView(imgur_link, self.handle_mode_selection)
+        view = ModeSelectionView(imgur_link, interaction.user.id, self.handle_mode_selection)
         await interaction.response.send_message(
             content="Select the mode for your level:",
             view=view,
             ephemeral=True
         )
 
-    async def handle_mode_selection(self, interaction: discord.Interaction, imgur_link: str, mode: str):
+    async def handle_mode_selection(self, interaction: discord.Interaction, imgur_link: str, mode: str, creators: list):
         await interaction.response.defer(ephemeral=True)
 
-        level_posted = await self.bot.post_level(imgur_link, mode, interaction.user.id)
+        level_posted = await self.bot.post_level(imgur_link, mode, creators)
 
         if level_posted:
             await interaction.followup.send(
