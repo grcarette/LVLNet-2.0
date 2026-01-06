@@ -34,12 +34,15 @@ class LVLNetBot(commands.Bot):
         if not imgur_data:
             return False
 
+        creator_names = ", ".join(user.display_name for user in creators)
+        creator_ids = [user.id for user in creators]
+
         level_data = {
             'imgur_url': imgur_url,
             'name': imgur_data['title'],
             'code': imgur_data['code'],
             'mode': mode,
-            'creators': creators
+            'creators': creator_ids
         }
 
         level_added = await self.dh.add_level(level_data)
@@ -52,8 +55,6 @@ class LVLNetBot(commands.Bot):
         tag_map = {tag.id: tag for tag in forum_channel.available_tags}
         tag_id = MODE_TAGS[mode]
         forum_tag = tag_map[tag_id]
-
-        creator_names = ", ".join(user for user in creators)
 
         title = f"{level_data['code']} - {level_data['name']} - by {creator_names}"
         content = level_data['imgur_url']

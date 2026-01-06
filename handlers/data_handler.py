@@ -14,7 +14,6 @@ class DataHandler:
             'code': level_data['code']
         }
         level = await self.level_collection.find_one(query)
-        print(level)
         if level:
             return False 
 

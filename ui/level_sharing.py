@@ -8,7 +8,7 @@ class CocreatorSelectMenu(discord.ui.UserSelect):
     
     async def callback(self, interaction: discord.Interaction):
         selected_user = self.values[0]
-        await self.secondary_callback(selected_user.display_name)
+        await self.secondary_callback(selected_user)
         message = await interaction.response.send_message(f"Added {selected_user.mention}", ephemeral=True)
         message_obj = await interaction.original_response()
 
@@ -36,7 +36,7 @@ class ModeSelectionView(discord.ui.View):
         super().__init__(timeout=timeout)
         self.imgur_link = imgur_link
         self.callback = callback
-        self.creators = [user.display_name]
+        self.creators = [user]
         self.difficulty = None
 
         self.add_cocreators_button = discord.ui.Button(
