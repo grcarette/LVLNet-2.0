@@ -88,14 +88,17 @@ class LevelSharingView(discord.ui.View):
         )
 
     async def handle_mode_selection(self, interaction: discord.Interaction, imgur_link: str, mode: str):
-        level_posted = await self.bot.post_level(imgur_link, mode)
+        await interaction.response.defer(ephemeral=True)
+
+        level_posted = await self.bot.post_level(imgur_link, mode, interaction.user.id)
+
         if level_posted:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Level posted successfully",
                 ephemeral=True
             )
         else:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Failed to post level. Please try again later.",
                 ephemeral=True
             )

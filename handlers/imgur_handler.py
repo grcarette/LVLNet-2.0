@@ -49,6 +49,7 @@ class ImgurHandler:
 
         imgur_data = {
             "title": title,
-            "description": description
+            "code": description,
+            "url": url
         }
         return imgur_data
