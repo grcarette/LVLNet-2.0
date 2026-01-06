@@ -8,5 +8,6 @@ class UIHandler:
     async def initialize(self, level_sharing_channel_id):
         channel = discord.utils.get(self.bot.guild.text_channels, id=level_sharing_channel_id)
         if channel:
+            await channel.purge()
             view = LevelSharingView(self.bot)
             await channel.send(view=view)

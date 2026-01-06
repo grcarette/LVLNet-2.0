@@ -24,6 +24,14 @@ class LVLNetBot(commands.Bot):
         level_sharing_channel_id = int(os.getenv('LEVEL_SHARING_CHANNEL_ID'))
         await self.uh.initialize(level_sharing_channel_id)
 
+    async def post_level(self, imgur_link, mode):
+        imgur_data = await self.ih.get_imgur_data(imgur_link)
+        if not imgur_data:
+            return False
+        
+        print(imgur_data)
+        return True
+
 if __name__ == "__main__":
     load_dotenv()
     intents = discord.Intents.default()

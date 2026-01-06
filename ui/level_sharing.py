@@ -91,7 +91,7 @@ class LevelSharingView(discord.ui.View):
         level_posted = await self.bot.post_level(imgur_link, mode)
         if level_posted:
             await interaction.response.send_message(
-                f"Level posted!\nImgur: {imgur_link}\nMode: {mode.capitalize()}",
+                f"Level posted successfully",
                 ephemeral=True
             )
         else:
