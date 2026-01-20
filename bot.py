@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from handlers.data_handler import DataHandler
 from handlers.imgur_handler import ImgurHandler
 from handlers.ui_handler import UIHandler
+from handlers.reaction_handler import ReactionHandler
 
 MODE_TAGS = {
     "Challenge": 1449441012169707673,
@@ -19,8 +20,15 @@ class LVLNetBot(commands.Bot):
         self.dh = DataHandler(self)
         self.ih = ImgurHandler(self)
         self.uh = UIHandler(self)
+        self.rh = ReactionHandler(self)
 
         self.level_sharing_channel_id = int(os.getenv('LEVEL_SHARING_CHANNEL_ID'))
+
+    async def setup_hook(self):
+        await self.load_extension("cogs.level_cog")
+        GUILD = discord.Object(id=int(os.getenv('GUILD_ID')))
+        self.tree.copy_global_to(guild=GUILD)
+        await self.tree.sync(guild=GUILD)
 
     async def on_ready(self):
         self.guild = self.guilds[0]
@@ -30,8 +38,11 @@ class LVLNetBot(commands.Bot):
         await self.uh.initialize(level_sharing_channel_id)
 
     async def verify_code(self, code):
-        if not code[5] == '-' and len(code) == 9:
+        print(code[4], code, len(code))
+        if not code[4] == '-' or len(code) != 9:
+            print('false!!')
             return False
+        return True
 
     async def post_level(self, imgur_url, mode, creators):
         imgur_data = await self.ih.get_imgur_data(imgur_url)
@@ -47,7 +58,7 @@ class LVLNetBot(commands.Bot):
             'code': imgur_data['code'],
             'mode': mode,
             'creators': creator_ids,
-            'tournament_legal': false
+            'tournament_legal': False
         }
 
         level_added = await self.dh.add_level(level_data)
@@ -98,5 +109,7 @@ if __name__ == "__main__":
     intents.messages = True 
     intents.message_content = True
     intents.guilds = True
-    bot = LVLNetBot(command_prefix="!", intents=intents)
+    intents.reactions = True
+
+    bot = LVLNetBot(command_prefix="/", intents=intents)
     bot.run(os.getenv("DISCORD_TOKEN"))
