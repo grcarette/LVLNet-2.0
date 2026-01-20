@@ -30,10 +30,10 @@ class LevelCog(commands.Cog):
             await interaction.followup.send("Failed to update level legality.")
 
     @app_commands.command(
-        name="random_level",
+        name="r",
         description="Get a random tournament legal level"
     )
-    @app_commands.describe(number="Number of levels to retrieve (default 1)")
+    @app_commands.describe(number="Number of levels to retrieve (max 4)")
     async def random_level(self, interaction: discord.Interaction, number: int = 1):
         await interaction.response.defer(ephemeral=False)
 
@@ -57,14 +57,11 @@ class LevelCog(commands.Cog):
                         creator_names.append(user.display_name)
                     except:
                         creator_names.append(f"Unknown({creator_id})")
-            
             creators_string = ", ".join(creator_names)
-
             embed = discord.Embed(
                 title=level['name'],
                 color=discord.Color.blue()
             )
-            
             embed.add_field(name="Creator", value=creators_string, inline=True)
             embed.add_field(name="Code", value=f"`{level['code']}`", inline=True)
             embed.add_field(name="Mode", value=level['mode'].capitalize(), inline=True)

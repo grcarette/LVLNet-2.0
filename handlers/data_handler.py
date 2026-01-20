@@ -34,6 +34,9 @@ class DataHandler:
         if tournament_legal:
             query['tournament_legal'] = True
 
+        if number > 4:
+            number = 4
+
         pipeline = [
             {'$match': query},
             {'$sample': {'size': number}}
