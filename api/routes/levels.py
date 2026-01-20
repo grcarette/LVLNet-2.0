@@ -15,9 +15,17 @@ async def get_level(request: Request, code: str):
 
 @router.get("/")
 @limiter.limit("30/minute")
-async def list_levels(request: Request, tournament_legal: bool | None = None):
+async def list_levels(
+    request: Request, 
+    tournament_legal: bool | None = None,
+    mode: str = "party" 
+):
     query = {}
-    if tournament_legal is not None:
-        query["tournament_legal"] = tournament_legal
+    query["mode"] = mode.lower()
 
-    return await db.levels.find(query, {"_id": 0}).to_list(100)
+    if tournament_legal is None or tournament_legal is True:
+        query["tournament_legal"] = True
+    else:
+        pass 
+
+    return await db.levels.find(query, {"_id": 0}).to_list(length=None)

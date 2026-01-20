@@ -90,7 +90,7 @@ class ModeSelectionView(discord.ui.View):
         self.creators.append(creator)
 
     async def toggle_party_mode(self, interaction: discord.Interaction):
-        self.type = 'Party'
+        self.type = 'party'
         self.difficulty = None
         self.party_button.style = discord.ButtonStyle.primary
         self.challenge_button.style = discord.ButtonStyle.secondary
@@ -98,7 +98,7 @@ class ModeSelectionView(discord.ui.View):
         await interaction.response.edit_message(view=self)
     
     async def toggle_challenge_mode(self, interaction: discord.Interaction):
-        self.type = 'Challenge'
+        self.type = 'challenge'
         self.challenge_button.style = discord.ButtonStyle.primary
         self.party_button.style = discord.ButtonStyle.secondary
         self.submit_button.disabled = False

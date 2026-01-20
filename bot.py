@@ -9,8 +9,8 @@ from handlers.ui_handler import UIHandler
 from handlers.reaction_handler import ReactionHandler
 
 MODE_TAGS = {
-    "Challenge": 1449441012169707673,
-    "Party": 1449440516923064422
+    "challenge": 1449441012169707673,
+    "party": 1449440516923064422
 }
 
 class LVLNetBot(commands.Bot):

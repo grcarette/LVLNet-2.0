@@ -40,7 +40,7 @@ class DataHandler:
         result = await self.level_collection.update_one(
             {
                 'code': level_code,
-                'mode': 'Party'
+                'mode': 'party'
             },
             {
                 '$set': {'tournament_legal': is_legal}
