@@ -29,5 +29,57 @@ class LevelCog(commands.Cog):
         else:
             await interaction.followup.send("Failed to update level legality.")
 
+    @app_commands.command(
+        name="random_level",
+        description="Get a random tournament legal level"
+    )
+    @app_commands.describe(number="Number of levels to retrieve (default 1)")
+    async def random_level(self, interaction: discord.Interaction, number: int = 1):
+        await interaction.response.defer(ephemeral=False)
+
+        levels = await self.bot.dh.get_random_levels(number, tournament_legal=True)
+        
+        if not levels:
+            await interaction.followup.send("Error retrieving levels.")
+            return
+
+        embed_list = []
+
+        for level in levels:
+            creator_names = []
+            for creator_id in level['creators']:
+                member = interaction.guild.get_member(int(creator_id))
+                if member:
+                    creator_names.append(member.display_name)
+                else:
+                    try:
+                        user = await self.bot.fetch_user(int(creator_id))
+                        creator_names.append(user.display_name)
+                    except:
+                        creator_names.append(f"Unknown({creator_id})")
+            
+            creators_string = ", ".join(creator_names)
+
+            embed = discord.Embed(
+                title=level['name'],
+                color=discord.Color.blue()
+            )
+            
+            embed.add_field(name="Creator", value=creators_string, inline=True)
+            embed.add_field(name="Code", value=f"`{level['code']}`", inline=True)
+            embed.add_field(name="Mode", value=level['mode'].capitalize(), inline=True)
+            
+            if level.get('imgur_url'):
+                raw_url = level['imgur_url'].split('?')[0].rstrip('/')
+                split_index = max(raw_url.rfind('-'), raw_url.rfind('/'))
+                image_id = raw_url[split_index + 1:].split('.')[0]
+                direct_link = f"https://i.imgur.com/{image_id}.png"
+                
+                embed.set_image(url=direct_link)
+                embed.description = f"[View on Imgur]({level['imgur_url']})"
+            embed_list.append(embed)
+
+        await interaction.followup.send(embeds=embed_list)
+
 async def setup(bot):
     await bot.add_cog(LevelCog(bot))

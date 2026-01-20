@@ -29,6 +29,20 @@ class DataHandler:
         level = await self.level_collection.find_one({'code': level_code})
         return level
 
+    async def get_random_levels(self, number=1, tournament_legal=True):
+        query = {}
+        if tournament_legal:
+            query['tournament_legal'] = True
+
+        pipeline = [
+            {'$match': query},
+            {'$sample': {'size': number}}
+        ]
+        levels = []
+        async for level in self.level_collection.aggregate(pipeline):
+            levels.append(level)
+        return levels
+
     async def attach_post_to_level(self, level_code, post_id):
         result = await self.level_collection.update_one(
             {'code': level_code},
@@ -47,5 +61,6 @@ class DataHandler:
             }
         )
         return result.modified_count
+
 
 
