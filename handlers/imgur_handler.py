@@ -1,49 +1,60 @@
-from playwright.sync_api import sync_playwright
+import os
+import aiohttp
+import logging
 
-from playwright.async_api import async_playwright
+logger = logging.getLogger('discord')
 
 class ImgurHandler:
     def __init__(self, bot):
-        self.bot = bot
-
-    async def get_imgur_data(self, url):
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(url)
-
-            await page.wait_for_selector("h1.Post-title, div.Gallery-Content--descr", timeout=5000)
-
-            title_el = await page.query_selector("h1.Post-title")
-            if title_el:
-                title = (await title_el.inner_text()).strip()
-            else:
-                title_el = await page.query_selector("meta[property='og:title']") or await page.query_selector("title")
-                if title_el:
-                    tag_name = await title_el.evaluate("el => el.tagName")
-                    if tag_name == "META":
-                        title = (await title_el.get_attribute("content")).strip()
-                    else:
-                        title = (await title_el.inner_text()).strip()
-                    if title.endswith(" - Imgur"):
-                        title = title.rsplit(" - Imgur", 1)[0].strip()
-                else:
-                    title = "No title"
-
-            desc_el = await page.query_selector("div.Gallery-Content--descr") or await page.query_selector("meta[property='og:description']")
-            if desc_el:
-                tag_name = await desc_el.evaluate("el => el.tagName")
-                if tag_name == "META":
-                    description = (await desc_el.get_attribute("content")).strip()
-                else:
-                    description = (await desc_el.inner_text()).strip()
-            else:
-                description = "No description"
-
-            await browser.close()
-
-        imgur_data = {
-            "title": title,
-            "code": description,
+        self.client_id = os.getenv("IMGUR_CLIENT_ID")
+        self.headers = {
+            "Authorization": f"Client-ID {self.client_id}"
         }
-        return imgur_data
+
+    async def get_imgur_data(self, imgur_url):
+        clean_url = imgur_url.split('?')[0].rstrip('/')
+        split_index = max(clean_url.rfind('-'), clean_url.rfind('/'))
+        image_id = clean_url[split_index + 1:].split('.')[0]
+
+        if not image_id or len(image_id) < 5:
+            logger.error(f"Failed to parse ID from: {imgur_url}")
+            return None
+
+        endpoints = [
+            f"https://api.imgur.com/3/gallery/album/{image_id}",
+            f"https://api.imgur.com/3/image/{image_id}"
+        ]
+
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            for url in endpoints:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        json_resp = await response.json()
+                        data = json_resp.get('data', {})
+                        title = data.get('title') or "Untitled"
+                        level_code = data.get('description') or ""
+                        
+                        if not level_code and 'images' in data:
+                            level_code = data['images'][0].get('description') or ""
+                        image_url = data.get('link')
+                        if not image_url and 'images' in data:
+                            image_url = data['images'][0].get('link')
+                            
+                        return {
+                            "title": title,
+                            "code": level_code.strip(),
+                            "image_url": image_url
+                        }
+            
+            logger.error(f"Imgur API Error {response.status} for ID {image_id}")
+            return None
+
+if __name__ == "__main__":
+    import asyncio
+
+    async def main():
+        ih = ImgurHandler()
+        data = await ih.get_imgur_data("https://imgur.com/7eq01Zj")
+        print(data)
+
+    asyncio.run(main())
