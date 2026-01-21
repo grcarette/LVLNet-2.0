@@ -20,11 +20,11 @@ class LevelCog(commands.Cog):
             await interaction.followup.send(f"Level with code `{level_code}` not found.")
             return
 
-        new_status = not level.get('tournament_legal', False)
-        success = await self.bot.dh.set_tourney_legality(level_code, new_status)
+        legality = not level.get('tournament_legal', False)
+        success = await self.bot.lh.set_tourney_legality(level_code, legality)
 
         if success:
-            status_text = "LEGAL" if new_status else "ILLEGAL"
+            status_text = "LEGAL" if legality else "ILLEGAL"
             await interaction.followup.send(f"Level `{level_code}` is now marked as **{status_text}**.")
         else:
             await interaction.followup.send("Failed to update level legality.")

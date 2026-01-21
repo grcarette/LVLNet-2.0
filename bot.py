@@ -7,6 +7,7 @@ from handlers.data_handler import DataHandler
 from handlers.imgur_handler import ImgurHandler
 from handlers.ui_handler import UIHandler
 from handlers.reaction_handler import ReactionHandler
+from handlers.level_handler import LevelHandler
 
 MODE_TAGS = {
     "challenge": 1449441012169707673,
@@ -21,6 +22,7 @@ class LVLNetBot(commands.Bot):
         self.ih = ImgurHandler(self)
         self.uh = UIHandler(self)
         self.rh = ReactionHandler(self)
+        self.lh = LevelHandler(self)
 
         self.level_sharing_channel_id = int(os.getenv('LEVEL_SHARING_CHANNEL_ID'))
 

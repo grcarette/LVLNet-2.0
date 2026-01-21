@@ -41,7 +41,7 @@ class ReactionHandler:
         if not level_code:
             return
         
-        await self.dh.set_tourney_legality(level_code, set_legal)
+        await self.bot.lh.set_tourney_legality(level_code, set_legal)
 
     def extract_level_code(self, message: discord.Message) -> str:
         if isinstance(message.channel, discord.Thread):
