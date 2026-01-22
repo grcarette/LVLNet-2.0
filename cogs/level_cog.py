@@ -7,10 +7,48 @@ class LevelCog(commands.Cog):
         self.bot = bot
 
     @app_commands.command(
+        name="add_level",
+        description="Add a party level directly to the database"
+    )
+    @app_commands.describe(imgur_link="Imgur link", creator_id="Creator ID")
+    @app_commands.checks.has_any_role("Level Arbiter", "Event Organizer", "Moderator")
+    async def add_level(self, interaction: discord.Interaction, imgur_link: str, creator_id: str):
+        await interaction.response.defer(ephemeral=True)
+
+        if not creator_id.isdigit():
+            await interaction.followup.send(f"Error: invalid creator ID")
+            return
+        creator_id = int(creator_id)
+        creator = discord.utils.get(self.bot.guild.members)
+
+        level = await self.bot.ih.get_imgur_data(imgur_link)
+        if not level:
+            await interaction.followup.send(f"Error: invalid imgur link")
+            return
+
+        mode = "party"
+        post_to_forum = False
+        level_posted = await self.bot.lh.post_level(imgur_link, mode, [creator_id], post_to_forum)
+
+        if not level_posted:
+            await interaction.followup.send(f"Error: Failed to post level (perhaps it already exists?)")
+        await interaction.followup.send(f"Level {level['title']} successfully added to database")
+
+        await self.bot.lh.set_tourney_legality(level['code'], legality=True)
+        return
+
+
+        
+        
+        
+
+
+
+    @app_commands.command(
         name="legality",
         description="Toggle the tournament legality of a level via its code"
     )
-    @app_commands.describe(level_code="Code:")
+    @app_commands.describe(level_code="Code")
     @app_commands.checks.has_role("Level Arbiter")
     async def legality(self, interaction: discord.Interaction, level_code: str):
         await interaction.response.defer(ephemeral=True)

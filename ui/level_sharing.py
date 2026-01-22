@@ -145,7 +145,7 @@ class LevelSharingView(discord.ui.View):
     async def handle_mode_selection(self, interaction: discord.Interaction, imgur_link: str, mode: str, creators: list):
         await interaction.response.defer(ephemeral=True)
 
-        level_posted = await self.bot.post_level(imgur_link, mode, creators)
+        level_posted = await self.bot.lh.post_level(imgur_link, mode, creators)
 
         if level_posted:
             await interaction.delete_original_response()
@@ -162,7 +162,7 @@ class LevelSharingView(discord.ui.View):
     async def handle_remove_level(self, interaction: discord.Interaction, code: str):
         await interaction.response.defer(ephemeral=True)
 
-        level_removed = await self.bot.remove_level(code, interaction.user)
+        level_removed = await self.bot.lh.remove_level(code, interaction.user)
 
         if level_removed:
             await interaction.followup.send(
