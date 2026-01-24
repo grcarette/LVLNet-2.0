@@ -67,7 +67,7 @@ class DataHandler:
         await self.bot.logh.log_legality(level_code, is_legal)
         return result.modified_count
 
-    async def add_user(self, discord_id, username):
+    async def register_user(self, discord_id, username):
         query = {
             'discord_id': discord_id
         }
@@ -80,6 +80,28 @@ class DataHandler:
             'username': username
         }
         result = await self.user_collection.insert_one(data)
+        await self.bot.logh.log_user(username, discord_id)
+        return result.inserted_id
+
+    async def get_username(self, discord_id):
+        query = {
+            'discord_id': discord_id
+        }
+        user_data = await self.user_collection.find_one(query)
+
+        if user_data:
+            return user_data['username']
+
+        try:
+            user = await self.bot.fetch_user(int(discord_id))
+            username = user.name
+
+            result = await self.register_user(discord_id, username)
+            
+            return username
+        except Exception as e:
+            await self.bot.logh.log_user_not_found(discord_id)
+            return False
 
 
 
