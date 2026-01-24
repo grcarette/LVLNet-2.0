@@ -57,7 +57,7 @@ async def list_levels(
     mode: str = "party" 
 ):
     query = {"mode": mode.lower()}
-    if tournament_legal is not False: 
+    if tournament_legal is not None: 
         query["tournament_legal"] = True
 
     pipeline = [

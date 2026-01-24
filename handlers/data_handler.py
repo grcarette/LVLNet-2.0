@@ -105,7 +105,7 @@ class DataHandler:
             return username
         except Exception as e:
             await self.bot.logh.log_user_not_found(discord_id)
-            return False
+            return 'Unknown User'
 
     async def register_all_users(self):
         all_creator_ids = await self.db.levels.distinct("creators")

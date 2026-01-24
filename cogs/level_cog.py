@@ -79,15 +79,8 @@ class LevelCog(commands.Cog):
         for level in levels:
             creator_names = []
             for creator_id in level['creators']:
-                member = interaction.guild.get_member(int(creator_id))
-                if member:
-                    creator_names.append(member.display_name)
-                else:
-                    try:
-                        user = await self.bot.fetch_user(int(creator_id))
-                        creator_names.append(user.display_name)
-                    except:
-                        creator_names.append(f"Unknown({creator_id})")
+                username = await self.bot.dh.get_username(creator_id)
+                creator_names.append(username)
             creators_string = ", ".join(creator_names)
             embed = discord.Embed(
                 title=level['name'],
