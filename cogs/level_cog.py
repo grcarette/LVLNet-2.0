@@ -37,13 +37,6 @@ class LevelCog(commands.Cog):
         await self.bot.lh.set_tourney_legality(level['code'], legality=True)
         return
 
-
-        
-        
-        
-
-
-
     @app_commands.command(
         name="legality",
         description="Toggle the tournament legality of a level via its code"
@@ -61,7 +54,7 @@ class LevelCog(commands.Cog):
         legality = not level.get('tournament_legal', False)
         success = await self.bot.lh.set_tourney_legality(level_code, legality)
 
-        if success:
+        if not success:
             status_text = "LEGAL" if legality else "ILLEGAL"
             await interaction.followup.send(f"Level `{level_code}` is now marked as **{status_text}**.")
         else:

@@ -20,23 +20,8 @@ class LevelHandler:
             print(legality_changed)
             return
 
-        level = await self.dh.get_level(level_code)
-
-        channel = discord.utils.get(self.bot.guild.channels, id=self.bot_logs_channel_id)
-        print(channel)
-        if legality:
-            embed_color = discord.Color.green()
-            message = "Legal"
-        else:
-            embed_color = discord.Color.red()
-            message = "Illegal"
-        embed = discord.Embed(
-            title=f"Stage Legality updated",
-            color=embed_color,
-            description=f"Stage `{level['name']}` with code `{level['code']}` made {message}"
-        )
-        await channel.send(embed=embed)
-        return True
+        result = await self.bot.logh.log_legality(level_code, legality)
+        return result
 
     async def post_level(self, imgur_url, mode, creators, post_to_forum=True):
         imgur_data = await self.bot.ih.get_imgur_data(imgur_url)

@@ -8,6 +8,7 @@ from handlers.imgur_handler import ImgurHandler
 from handlers.ui_handler import UIHandler
 from handlers.reaction_handler import ReactionHandler
 from handlers.level_handler import LevelHandler
+from handlers.log_handler import LogHandler
 
 class LVLNetBot(commands.Bot):
     def __init__(self, command_prefix, intents):
@@ -18,6 +19,7 @@ class LVLNetBot(commands.Bot):
         self.uh = UIHandler(self)
         self.rh = ReactionHandler(self)
         self.lh = LevelHandler(self)
+        self.logh = LogHandler(self)
 
         self.level_sharing_channel_id = int(os.getenv('LEVEL_SHARING_CHANNEL_ID'))
 
