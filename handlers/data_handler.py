@@ -19,6 +19,10 @@ class DataHandler:
         if level:
             return False 
 
+        for user_id in level_data['creators']:
+            username = await self.get_username(user_id)
+            await self.register_user(user_id, username)
+
         result = await self.level_collection.insert_one(level_data)
         return result.inserted_id
 
@@ -94,7 +98,7 @@ class DataHandler:
 
         try:
             user = await self.bot.fetch_user(int(discord_id))
-            username = user.name
+            username = user.display_name
 
             result = await self.register_user(discord_id, username)
             
@@ -102,6 +106,19 @@ class DataHandler:
         except Exception as e:
             await self.bot.logh.log_user_not_found(discord_id)
             return False
+
+    async def register_all_users(self):
+        all_creator_ids = await self.db.levels.distinct("creators")
+        existing_users = await self.db.users.distinct("discord_id")
+        existing_set = set(existing_users)
+
+        new_ids = [uid for uid in all_creator_ids if uid not in existing_set]
+
+        for discord_id in new_ids:
+            username = await self.get_username(discord_id)
+            if username:
+                await self.register_user(discord_id, username)
+        
 
 
 
