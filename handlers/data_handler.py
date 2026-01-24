@@ -9,6 +9,7 @@ class DataHandler:
         self.client = motor.motor_asyncio.AsyncIOMotorClient(mongo_uri)
         self.db = self.client[db_name]
         self.level_collection = self.db['levels']
+        self.user_collection = self.db['users']
 
     async def add_level(self, level_data):
         query = {
@@ -64,6 +65,20 @@ class DataHandler:
             }
         )
         return result.modified_count
+
+    async def add_user(self, discord_id, username):
+        query = {
+            'discord_id': discord_id
+        }
+        user = await self.user_collection.find_one(query)
+        if user:
+            return
+
+        data = {
+            'discord_id': discord_id,
+            'username': username
+        }
+        result = await self.user_collection.insert_one(data)
 
 
 
