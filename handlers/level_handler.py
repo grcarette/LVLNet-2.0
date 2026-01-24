@@ -19,9 +19,7 @@ class LevelHandler:
         if not legality_changed:
             print(legality_changed)
             return
-
-        result = await self.bot.logh.log_legality(level_code, legality)
-        return result
+        return
 
     async def post_level(self, imgur_url, mode, creators, post_to_forum=True):
         imgur_data = await self.bot.ih.get_imgur_data(imgur_url)

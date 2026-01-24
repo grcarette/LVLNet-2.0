@@ -64,6 +64,7 @@ class DataHandler:
                 '$set': {'tournament_legal': is_legal}
             }
         )
+        await self.bot.logh.log_legality(level_code, is_legal)
         return result.modified_count
 
     async def add_user(self, discord_id, username):
