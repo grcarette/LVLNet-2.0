@@ -77,7 +77,6 @@ class LevelCog(commands.Cog):
         embed_list = []
 
         for level in levels:
-            embed = await self.create_stage_embed(level)
             embed_list.append(embed)
             creator_names = []
             for creator_id in level['creators']:
@@ -103,11 +102,6 @@ class LevelCog(commands.Cog):
             embed_list.append(embed)
 
         await interaction.followup.send(embeds=embed_list)
-
-
-
-        
-
 
 async def setup(bot):
     await bot.add_cog(LevelCog(bot))
