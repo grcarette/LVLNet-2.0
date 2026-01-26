@@ -50,19 +50,14 @@ async def get_level(request: Request, code: str):
     return results[0]
 
 @router.get("/random/{amount}")
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 async def get_random_levels(request: Request, amount: int):
-    # 1. Enforce the maximum limit of 5
-    if amount > 5:
-        amount = 5
-    if amount < 1:
-        amount = 1
+    amount = max(1, min(amount, 5))
 
     pipeline = [
-        # 2. Grab random documents first (most efficient)
-        {"$sample": {"size": amount}},
+        {"$match": {"tournament_legal": True}},
         
-        # 3. Perform the same lookup as your other routes
+        {"$sample": {"size": amount}},
         {
             "$lookup": {
                 "from": "users",
