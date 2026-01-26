@@ -77,7 +77,6 @@ class LevelCog(commands.Cog):
         embed_list = []
 
         for level in levels:
-            embed_list.append(embed)
             creator_names = []
             for creator_id in level['creators']:
                 username = await self.bot.dh.get_username(creator_id)
