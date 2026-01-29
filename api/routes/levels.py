@@ -8,7 +8,7 @@ router = APIRouter(prefix="/levels", tags=["levels"])
 
 @router.post("/batch")
 @limiter.limit("60/minute")
-async def get_levels(request: Request, codes: List[str] = Body(...)):
+async def get_levels_from_list(request: Request, codes: List[str] = Body(...)):
     pipeline = [
         {"$match": {"code": {"$in": codes}}},
         {
