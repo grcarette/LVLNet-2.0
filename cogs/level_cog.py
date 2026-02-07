@@ -64,7 +64,7 @@ class LevelCog(commands.Cog):
         name="r",
         description="Get a random tournament legal level"
     )
-    @app_commands.describe(number="Number of levels to retrieve (max 4)")
+    @app_commands.describe(number="Number of levels to retrieve (max 5)")
     async def random_level(self, interaction: discord.Interaction, number: int = 1):
         await interaction.response.defer(ephemeral=False)
 

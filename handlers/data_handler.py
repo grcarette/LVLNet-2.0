@@ -39,8 +39,8 @@ class DataHandler:
         if tournament_legal:
             query['tournament_legal'] = True
 
-        if number > 4:
-            number = 4
+        if number > 5:
+            number = 5
 
         pipeline = [
             {'$match': query},
