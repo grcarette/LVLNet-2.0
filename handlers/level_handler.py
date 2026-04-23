@@ -32,6 +32,28 @@ class LevelHandler:
         else:
             creator_ids = creators
 
+        existing_level = await self.dh.get_level(imgur_data['code'])
+
+        if existing_level:
+            # Level exists but has no forum post yet (e.g. added by organizer)
+            if not existing_level.get('forum_post_id') and post_to_forum:
+                # Add the poster as a creator if not already listed
+                new_creator_ids = [
+                    uid for uid in creator_ids
+                    if uid not in existing_level['creators']
+                ]
+                if new_creator_ids:
+                    await self.dh.add_creators(existing_level['code'], new_creator_ids)
+                    existing_level['creators'].extend(new_creator_ids)
+
+                all_creator_names = ", ".join(
+                    (await self.dh.get_username(uid)) for uid in existing_level['creators']
+                )
+                await self.post_level_to_forum(existing_level, all_creator_names, existing_level['mode'])
+                return True
+            # Level exists and already has a forum post — true duplicate
+            return False
+
         level_data = {
             'imgur_url': imgur_url,
             'name': imgur_data['title'],

@@ -118,6 +118,15 @@ class DataHandler:
             username = await self.get_username(discord_id)
             if username:
                 await self.register_user(discord_id, username)
+
+    async def add_creators(self, level_code, new_creator_ids):
+        await self.level_collection.update_one(
+            {'code': level_code},
+            {'$addToSet': {'creators': {'$each': new_creator_ids}}}
+        )
+        for user_id in new_creator_ids:
+            username = await self.get_username(user_id)
+            await self.register_user(user_id, username)
         
 
 

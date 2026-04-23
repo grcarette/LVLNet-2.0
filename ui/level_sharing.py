@@ -151,7 +151,7 @@ class LevelSharingView(discord.ui.View):
             await interaction.delete_original_response()
         else:
             await interaction.followup.send(
-                "Failed to post level: Either Level already exists or Imgur link is invalid.",
+                "Failed to post level: the Imgur link is invalid, or this level has already been posted to the forum.",
                 ephemeral=True
             )
 
