@@ -35,7 +35,7 @@ class DataHandler:
         return level
 
     async def get_random_levels(self, number=1, tournament_legal=True):
-        query = {}
+        query = {'hidden': {'$ne': True}}
         if tournament_legal:
             query['tournament_legal'] = True
 
@@ -44,12 +44,24 @@ class DataHandler:
 
         pipeline = [
             {'$match': query},
-            {'$sample': {'size': number}}
+            {'$sample': {'size': number}},
         ]
         levels = []
         async for level in self.level_collection.aggregate(pipeline):
             levels.append(level)
         return levels
+
+    async def update_level(self, level_code, update_data):
+        if 'creators' in update_data:
+            for user_id in update_data['creators']:
+                username = await self.get_username(user_id)
+                await self.register_user(user_id, username)
+
+        result = await self.level_collection.update_one(
+            {'code': level_code},
+            {'$set': update_data},
+        )
+        return result.modified_count
 
     async def attach_post_to_level(self, level_code, post_id):
         result = await self.level_collection.update_one(

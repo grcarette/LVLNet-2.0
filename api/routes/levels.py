@@ -10,7 +10,7 @@ router = APIRouter(prefix="/levels", tags=["levels"])
 @limiter.limit("60/minute")
 async def get_levels_from_list(request: Request, codes: List[str] = Body(...)):
     pipeline = [
-        {"$match": {"code": {"$in": codes}}},
+        {"$match": {"code": {"$in": codes}, "hidden": {"$ne": True}}},
         {
             "$lookup": {
                 "from": "users",
@@ -92,7 +92,7 @@ async def get_random_levels(request: Request, amount: int):
     amount = max(1, min(amount, 5))
 
     pipeline = [
-        {"$match": {"tournament_legal": True}},
+        {"$match": {"tournament_legal": True, "hidden": {"$ne": True}}},
         
         {"$sample": {"size": amount}},
         {
@@ -134,7 +134,7 @@ async def list_levels(
     tournament_legal: bool | None = None,
     mode: str = "party" 
 ):
-    query = {"mode": mode.lower()}
+    query = {"mode": mode.lower(), "hidden": {"$ne": True}}
     if tournament_legal is not None: 
         query["tournament_legal"] = True
 

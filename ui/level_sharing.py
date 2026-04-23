@@ -2,21 +2,24 @@ import discord
 import asyncio
 
 class CocreatorSelectMenu(discord.ui.UserSelect):
-    def __init__(self, secondary_callback):
+    def __init__(self, secondary_callback, confirmation_text="Added {user}"):
         super().__init__()
         self.secondary_callback = secondary_callback
-    
+        self.confirmation_text = confirmation_text
+
     async def callback(self, interaction: discord.Interaction):
         selected_user = self.values[0]
         await self.secondary_callback(selected_user)
-        message = await interaction.response.send_message(f"Added {selected_user.mention}", ephemeral=True)
+        await interaction.response.send_message(
+            self.confirmation_text.format(user=selected_user.mention),
+            ephemeral=True,
+        )
         message_obj = await interaction.original_response()
-
         asyncio.create_task(self.delete_after(message_obj, 1.5))
 
     async def delete_after(self, message, delay):
         await asyncio.sleep(delay)
-        try: 
+        try:
             await message.delete()
         except discord.NotFound:
             pass
@@ -55,6 +58,19 @@ class ModeSelectionView(discord.ui.View):
         )
         self.add_cocreators_button.callback = self.add_cocreators
         self.add_item(self.add_cocreators_button)
+
+        self.hidden = False
+        is_event_organizer = (
+            hasattr(user, "roles")
+            and any(role.name == "Event Organizer" for role in user.roles)
+        )
+        if is_event_organizer:
+            self.hidden_button = discord.ui.Button(
+                label="Hidden Upload",
+                style=discord.ButtonStyle.secondary,
+            )
+            self.hidden_button.callback = self.open_hidden_upload_picker
+            self.add_item(self.hidden_button)
 
         self.party_button = discord.ui.Button(
             label="Party Mode", 
@@ -106,7 +122,26 @@ class ModeSelectionView(discord.ui.View):
 
     async def submit_level(self, interaction: discord.Interaction):
         self.submit_button.disabled = True
-        await self.callback(interaction, self.imgur_link, self.type, self.creators)
+        await self.callback(interaction, self.imgur_link, self.type, self.creators, self.hidden)
+
+    async def open_hidden_upload_picker(self, interaction: discord.Interaction):
+        view = discord.ui.View()
+        view.add_item(
+            CocreatorSelectMenu(
+                self.set_hidden_primary_creator,
+                confirmation_text="Set {user} as creator (hidden upload)",
+            )
+        )
+        await interaction.response.send_message(
+            content="Select the actual creator of this level:",
+            view=view,
+            ephemeral=True,
+        )
+
+    async def set_hidden_primary_creator(self, creator):
+        self.hidden = True
+        self.creators = [creator]
+        self.hidden_button.style = discord.ButtonStyle.success
 
 
 class LevelSharingView(discord.ui.View):
@@ -142,17 +177,15 @@ class LevelSharingView(discord.ui.View):
             ephemeral=True
         )
 
-    async def handle_mode_selection(self, interaction: discord.Interaction, imgur_link: str, mode: str, creators: list):
+    async def handle_mode_selection(self, interaction, imgur_link, mode, creators, hidden=False):
         await interaction.response.defer(ephemeral=True)
-
-        level_posted = await self.bot.lh.post_level(imgur_link, mode, creators)
-
+        level_posted = await self.bot.lh.post_level(imgur_link, mode, creators, hidden=hidden)
         if level_posted:
             await interaction.delete_original_response()
         else:
             await interaction.followup.send(
-                "Failed to post level: the Imgur link is invalid, or this level has already been posted to the forum.",
-                ephemeral=True
+                "Failed to post level: Either Level already exists or Imgur link is invalid.",
+                ephemeral=True,
             )
 
     async def remove_level(self, interaction: discord.Interaction):

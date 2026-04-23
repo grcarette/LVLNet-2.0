@@ -21,52 +21,66 @@ class LevelHandler:
             return
         return
 
-    async def post_level(self, imgur_url, mode, creators, post_to_forum=True):
+    async def post_level(self, imgur_url, mode, creators, post_to_forum=True, hidden=False):
         imgur_data = await self.bot.ih.get_imgur_data(imgur_url)
         if not imgur_data or not await self.verify_code(imgur_data['code']):
             return False
 
-        if post_to_forum:
-            creator_names = ", ".join(user.display_name for user in creators)
-            creator_ids = [user.id for user in creators]
-        else:
-            creator_ids = creators
+        code = imgur_data['code']
 
-        existing_level = await self.dh.get_level(imgur_data['code'])
+        # Normalize: creators may be Member objects (from UI) or raw IDs (from admin cog)
+        creator_ids = [c.id if hasattr(c, 'id') else c for c in creators]
+        creator_names = ", ".join(
+            c.display_name for c in creators if hasattr(c, 'display_name')
+        )
 
-        if existing_level:
-            # Level exists but has no forum post yet (e.g. added by organizer)
-            if not existing_level.get('forum_post_id') and post_to_forum:
-                # Add the poster as a creator if not already listed
-                new_creator_ids = [
-                    uid for uid in creator_ids
-                    if uid not in existing_level['creators']
-                ]
-                if new_creator_ids:
-                    await self.dh.add_creators(existing_level['code'], new_creator_ids)
-                    existing_level['creators'].extend(new_creator_ids)
+        existing = await self.dh.get_level(code)
 
-                all_creator_names = ", ".join(
-                    (await self.dh.get_username(uid)) for uid in existing_level['creators']
-                )
-                await self.post_level_to_forum(existing_level, all_creator_names, existing_level['mode'])
+        if existing:
+            # Un-hide path: existing is hidden, new upload isn't, uploader is in stored creators
+            if (
+                existing.get('hidden')
+                and not hidden
+                and any(cid in existing['creators'] for cid in creator_ids)
+            ):
+                update_data = {
+                    'imgur_url': imgur_url,
+                    'name': imgur_data['title'],
+                    'creators': creator_ids,
+                    'mode': mode,
+                    'hidden': False,
+                }
+                await self.dh.update_level(code, update_data)
+
+                if post_to_forum:
+                    level_data = {
+                        'code': code,
+                        'imgur_url': imgur_url,
+                        'name': imgur_data['title'],
+                        'creators': creator_ids,
+                        'mode': mode,
+                    }
+                    await self.post_level_to_forum(level_data, creator_names, mode)
                 return True
-            # Level exists and already has a forum post — true duplicate
+
+            # Duplicate of a visible level, or hidden-upload attempt of an existing level
             return False
 
         level_data = {
             'imgur_url': imgur_url,
             'name': imgur_data['title'],
-            'code': imgur_data['code'],
+            'code': code,
             'mode': mode,
             'creators': creator_ids,
-            'tournament_legal': False
+            'tournament_legal': False,
+            'hidden': hidden,
         }
 
         level_added = await self.dh.add_level(level_data)
         if not level_added:
             return False
-        if post_to_forum:
+
+        if post_to_forum and not hidden:
             await self.post_level_to_forum(level_data, creator_names, mode)
         return True
 
@@ -93,15 +107,19 @@ class LevelHandler:
         if not level:
             return False
 
-        if user.id not in level['creators']:
+        is_creator = user.id in level['creators']
+        is_event_organizer = any(role.name == "Event Organizer" for role in user.roles)
+        is_hidden = level.get('hidden', False)
+
+        if not is_creator and not (is_event_organizer and is_hidden):
             return False
 
-        forum_channel_id = int(os.getenv('LEVEL_FORUM_CHANNEL_ID'))
-        forum_channel = discord.utils.get(self.bot.guild.forums, id=forum_channel_id)
+        forum_post_id = level.get('forum_post_id')
+        if forum_post_id:
+            thread = self.bot.get_channel(forum_post_id)
+            if thread:
+                await thread.delete()
 
-        thread = self.bot.get_channel(level['forum_post_id'])
-        if thread:
-            await thread.delete()
         await self.dh.remove_level(code)
         return True
 
