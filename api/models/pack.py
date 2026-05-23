@@ -3,11 +3,15 @@ from typing import List, Optional
 from datetime import datetime
 
 
+class Thumbnail(BaseModel):
+    data: bytes
+    content_type: str
+
 class PackVersion(BaseModel):
     version: int
     name: str
     description: str = ""
-    thumbnail_url: Optional[str] = None
+    thumbnail: Optional[Thumbnail] = None   # was: thumbnail_url: Optional[str]
     levels: List[str] = []
     created_at: datetime
 
