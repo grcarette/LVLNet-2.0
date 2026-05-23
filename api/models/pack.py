@@ -11,7 +11,7 @@ class PackVersion(BaseModel):
     version: int
     name: str
     description: str = ""
-    thumbnail: Optional[Thumbnail] = None   # was: thumbnail_url: Optional[str]
+    thumbnail: Optional[Thumbnail] = None
     levels: List[str] = []
     created_at: datetime
 
