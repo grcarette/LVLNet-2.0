@@ -12,7 +12,7 @@ class LevelCog(commands.Cog):
     )
     @app_commands.describe(imgur_link="Imgur link", creator_id="Creator ID")
     @app_commands.checks.has_any_role("Level Arbiter", "Event Organizer", "Moderator")
-    async def add_level(self, interaction, imgur_link, creator_id):
+    async def add_level(self, interaction: discord.Interaction, imgur_link: str, creator_id: str):
         await interaction.response.defer(ephemeral=True)
 
         if not creator_id.isdigit():
