@@ -31,6 +31,8 @@ class TimeSubmission(BaseModel):
     # Null if submitted by an older client that does not send this field.
     deaths: Optional[int] = Field(default=None)
 
+    client_version: Optional[str] = Field(default=None, alias="clientVersion")
+
     # Reserved for a future Steam session-ticket verification step (Trust model).
     # Accepted but never required or acted upon in v1.
     ticket: Optional[str] = None

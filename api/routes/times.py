@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -22,6 +23,34 @@ router = APIRouter(prefix="/packs", tags=["times"])
 # can't poison a board with garbage/overflow values (open question #6).
 MIN_RANKED_SECONDS = 0.0
 MAX_RANKED_SECONDS = 24 * 60 * 60  # 24h of gameplay time — generous, adjustable.
+
+
+def _parse_version(v: str) -> list:
+    """Parse a dotted version string into a list of ints. Tolerates pre-release suffixes."""
+    parts = []
+    for seg in v.split("."):
+        digits = ""
+        for ch in seg:
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+        parts.append(int(digits) if digits else 0)
+    return parts
+
+
+def _version_less_than(a: str, b: str) -> bool:
+    """Return True if version string a is strictly less than b."""
+    pa, pb = _parse_version(a), _parse_version(b)
+    n = max(len(pa), len(pb))
+    for i in range(n):
+        va = pa[i] if i < len(pa) else 0
+        vb = pb[i] if i < len(pb) else 0
+        if va < vb:
+            return True
+        if va > vb:
+            return False
+    return False
 
 
 def _best_per_player_pipeline(
@@ -108,6 +137,17 @@ async def submit_time(request: Request, pack_id: str, submission: TimeSubmission
     if mode is None:
         raise HTTPException(400, f"mode must be one of {VALID_MODES}")
 
+    # --- Version gate: authoritative server-side enforcement of the submit floor. ---
+    min_ver = os.getenv("MIN_SUBMIT_VERSION", "").strip()
+    if min_ver:
+        client_ver = (submission.client_version or "").strip()
+        if not client_ver or _version_less_than(client_ver, min_ver):
+            logger.info(
+                "submission rejected: client version %r below minimum %s (gsid=%s, pack=%s)",
+                client_ver or "(missing)", min_ver, gsid, pack_id,
+            )
+            return {"accepted": False, "newBest": False, "rank": 0}
+
     total = submission.total_seconds
     if total is None or total <= MIN_RANKED_SECONDS:
         raise HTTPException(400, "totalSeconds must be greater than 0")
@@ -183,6 +223,7 @@ async def submit_time(request: Request, pack_id: str, submission: TimeSubmission
         "created_at": now,
         "ip": client_ip,
         "deaths": submission.deaths,
+        "client_version": submission.client_version,
         # Reserved for future Steam-ticket verification; never set true in v1.
         "verified": False,
         "ticket": submission.ticket,

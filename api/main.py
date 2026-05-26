@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from api.routes.packs import router as packs_router
 from api.routes.levels import router as levels_router
 from api.routes.times import router as times_router
+from api.routes.versions import router as versions_router
 from api.utils import limiter
 from api.db import db
 
@@ -48,3 +49,4 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(levels_router)
 app.include_router(packs_router)
 app.include_router(times_router)
+app.include_router(versions_router)
