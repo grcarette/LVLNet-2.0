@@ -31,6 +31,10 @@ async def lifespan(app: FastAPI):
             ],
             name="player_best",
         )
+        await db.times.create_index(
+            [("pack_id", 1), ("version", 1), ("mode", 1), ("deaths", 1), ("total_seconds", 1)],
+            name="deathless_board",
+        )
     except Exception:
         pass
     yield

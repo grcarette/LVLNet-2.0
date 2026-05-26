@@ -24,24 +24,30 @@ MIN_RANKED_SECONDS = 0.0
 MAX_RANKED_SECONDS = 24 * 60 * 60  # 24h of gameplay time — generous, adjustable.
 
 
-def _best_per_player_pipeline(pack_id: str, version: int, mode: str) -> list:
+def _best_per_player_pipeline(
+    pack_id: str, version: int, mode: str, deathless_only: bool = False
+) -> list:
     """Reduce the full submission history to one row per player (their best,
     earliest-on-tie) for a single board, sorted ready for ranking.
 
     Tiebreak (open question #5): equal totals -> earliest submission ranks higher.
+    When deathless_only is True, only submissions where deaths == 0 are considered;
+    rows with deaths == null (legacy clients) are excluded from the deathless board.
     """
-    return [
-        {
-            "$match": {
-                "pack_id": pack_id,
-                "version": version,
-                "mode": mode,
-                "total_seconds": {
-                    "$gt": MIN_RANKED_SECONDS,
-                    "$lte": MAX_RANKED_SECONDS,
-                },
-            }
+    match: dict = {
+        "pack_id": pack_id,
+        "version": version,
+        "mode": mode,
+        "total_seconds": {
+            "$gt": MIN_RANKED_SECONDS,
+            "$lte": MAX_RANKED_SECONDS,
         },
+    }
+    if deathless_only:
+        match["deaths"] = 0  # excludes null (legacy) and any deaths > 0
+
+    return [
+        {"$match": match},
         {"$sort": {"total_seconds": 1, "created_at": 1}},
         {
             "$group": {
@@ -50,6 +56,7 @@ def _best_per_player_pipeline(pack_id: str, version: int, mode: str) -> list:
                 "display_name": {"$first": "$display_name"},
                 "total_seconds": {"$first": "$total_seconds"},
                 "created_at": {"$first": "$created_at"},
+                "deaths": {"$first": "$deaths"},
             }
         },
         # $group does not preserve order, so re-sort the collapsed rows.
@@ -58,14 +65,15 @@ def _best_per_player_pipeline(pack_id: str, version: int, mode: str) -> list:
 
 
 async def _ranked_board(
-    pack_id: str, version: int, mode: str, limit: Optional[int] = None
+    pack_id: str, version: int, mode: str, limit: Optional[int] = None,
+    deathless_only: bool = False,
 ) -> list:
     """Full board as plain dicts with the exact camelCase keys the client wants.
     Ranks are 1-based and assigned over the complete ordering before any slice,
     so a `rank` returned on submit is correct even when the row is past `limit`.
     """
     rows = await db.times.aggregate(
-        _best_per_player_pipeline(pack_id, version, mode)
+        _best_per_player_pipeline(pack_id, version, mode, deathless_only)
     ).to_list(length=None)
 
     board = [
@@ -74,6 +82,7 @@ async def _ranked_board(
             "displayName": row.get("display_name") or "",
             "gsid": row.get("gsid"),
             "totalSeconds": row.get("total_seconds"),
+            "deaths": row.get("deaths"),
         }
         for index, row in enumerate(rows, start=1)
     ]
@@ -173,6 +182,7 @@ async def submit_time(request: Request, pack_id: str, submission: TimeSubmission
         "splits": submission.splits,
         "created_at": now,
         "ip": client_ip,
+        "deaths": submission.deaths,
         # Reserved for future Steam-ticket verification; never set true in v1.
         "verified": False,
         "ticket": submission.ticket,
@@ -213,15 +223,17 @@ async def get_leaderboard(
     version: int = Query(1),
     limit: int = Query(50, ge=1, le=500),
     mode: Optional[str] = Query(None),
+    deathless: bool = Query(False),
 ):
     """Leaderboard for one board, ascending by totalSeconds, capped at `limit`.
     Omitted `mode` -> Speedrun. Returns an object with an `entries` array
-    (Unity JsonUtility cannot parse a bare top-level array)."""
+    (Unity JsonUtility cannot parse a bare top-level array).
+    Pass `deathless=true` to return only submissions where deaths == 0."""
     resolved_mode = normalize_mode(mode) if mode else DEFAULT_MODE
     if resolved_mode is None:
         raise HTTPException(400, f"mode must be one of {VALID_MODES}")
 
-    entries = await _ranked_board(pack_id, version, resolved_mode, limit=limit)
+    entries = await _ranked_board(pack_id, version, resolved_mode, limit=limit, deathless_only=deathless)
     return {"entries": entries}
 
 

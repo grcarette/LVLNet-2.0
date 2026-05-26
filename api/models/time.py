@@ -27,6 +27,10 @@ class TimeSubmission(BaseModel):
     total_seconds: float = Field(alias="totalSeconds")
     splits: List[float] = Field(default_factory=list)
 
+    # Run-wide death count submitted by the client. deathless == (deaths == 0).
+    # Null if submitted by an older client that does not send this field.
+    deaths: Optional[int] = Field(default=None)
+
     # Reserved for a future Steam session-ticket verification step (Trust model).
     # Accepted but never required or acted upon in v1.
     ticket: Optional[str] = None
