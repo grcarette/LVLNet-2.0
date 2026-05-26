@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Request, Body
+from fastapi import APIRouter, HTTPException, Request, Body, Depends
 from ..db import db
-from api.models.level import Level
-from api.utils import limiter
+from ..imgur import get_imgur_data
+from api.models.level import LevelCreateRequest
+from api.utils import limiter, require_api_key
 from typing import List
 
 router = APIRouter(prefix="/levels", tags=["levels"])
@@ -171,3 +172,72 @@ async def list_levels(
     ]
 
     return await db.levels.aggregate(pipeline).to_list(length=None)
+
+VALID_MODES = ("party", "challenge")
+
+
+def _is_valid_level_code(code: str) -> bool:
+    # 9 chars, dash in the middle: e.g. "ABCD-EFGH"
+    return len(code) == 9 and code[4] == "-"
+
+
+@router.post("/", dependencies=[Depends(require_api_key)])
+@limiter.limit("30/minute")
+async def create_level(request: Request, body: LevelCreateRequest):
+    mode = body.mode.lower()
+    if mode not in VALID_MODES:
+        raise HTTPException(400, f"mode must be one of {VALID_MODES}")
+
+    imgur_data = await get_imgur_data(body.imgur_url)
+    if not imgur_data:
+        raise HTTPException(400, "Could not resolve the Imgur link")
+
+    code = imgur_data["code"]
+    if not _is_valid_level_code(code):
+        raise HTTPException(400, "Imgur description is not a valid level code")
+
+    creator_ids = body.creators
+    existing = await db.levels.find_one({"code": code})
+
+    if existing:
+        # Un-hide path: stored level is hidden, this upload isn't, and the
+        # uploader is one of the stored creators.
+        if (
+            existing.get("hidden")
+            and not body.hidden
+            and any(cid in existing["creators"] for cid in creator_ids)
+        ):
+            update = {
+                "imgur_url": body.imgur_url,
+                "name": imgur_data["title"],
+                "creators": creator_ids,
+                "mode": mode,
+                "hidden": False,
+            }
+            await db.levels.update_one({"code": code}, {"$set": update})
+            return {"code": code, "created": False, "unhidden": True, **update}
+
+        # Visible duplicate, or a hidden-upload attempt over an existing level.
+        raise HTTPException(409, "A level with that code already exists")
+
+    level_doc = {
+        "imgur_url": body.imgur_url,
+        "name": imgur_data["title"],
+        "code": code,
+        "mode": mode,
+        "creators": creator_ids,
+        "tournament_legal": False,
+        "hidden": body.hidden,
+    }
+    await db.levels.insert_one(level_doc)
+    return {
+        "code": code,
+        "name": level_doc["name"],
+        "imgur_url": level_doc["imgur_url"],
+        "mode": mode,
+        "creators": creator_ids,
+        "hidden": body.hidden,
+        "tournament_legal": False,
+        "created": True,
+        "unhidden": False,
+    }

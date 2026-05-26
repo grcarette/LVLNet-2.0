@@ -1,9 +1,10 @@
-import discord
 import os
+import aiohttp
+import discord
 
 MODE_TAGS = {
     "challenge": 1449441012169707673,
-    "party": 1449440516923064422
+    "party": 1449440516923064422,
 }
 
 
@@ -13,7 +14,9 @@ class LevelHandler:
         self.dh = self.bot.dh
 
         self.bot_logs_channel_id = int(os.getenv('BOT_LOGS_CHANNEL_ID'))
-    
+        self.api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
+        self.api_key = os.getenv("PACKS_API_KEY")
+
     async def set_tourney_legality(self, level_code, legality):
         legality_changed = await self.dh.set_tourney_legality(level_code, legality)
         if not legality_changed:
@@ -22,84 +25,82 @@ class LevelHandler:
         return
 
     async def post_level(self, imgur_url, mode, creators, post_to_forum=True, hidden=False):
-        imgur_data = await self.bot.ih.get_imgur_data(imgur_url)
-        if not imgur_data or not await self.verify_code(imgur_data['code']):
-            return False
-
-        code = imgur_data['code']
-
-        # Normalize: creators may be Member objects (from UI) or raw IDs (from admin cog)
-        creator_ids = [c.id if hasattr(c, 'id') else c for c in creators]
+        creator_ids = [c.id if hasattr(c, "id") else int(c) for c in creators]
         creator_names = ", ".join(
-            c.display_name for c in creators if hasattr(c, 'display_name')
+            c.display_name for c in creators if hasattr(c, "display_name")
         )
 
-        existing = await self.dh.get_level(code)
+        result, error = await self._upload_via_api(imgur_url, mode, creator_ids, hidden)
+        if result is None:
+            return None, error
 
-        if existing:
-            # Un-hide path: existing is hidden, new upload isn't, uploader is in stored creators
-            if (
-                existing.get('hidden')
-                and not hidden
-                and any(cid in existing['creators'] for cid in creator_ids)
-            ):
-                update_data = {
-                    'imgur_url': imgur_url,
-                    'name': imgur_data['title'],
-                    'creators': creator_ids,
-                    'mode': mode,
-                    'hidden': False,
-                }
-                await self.dh.update_level(code, update_data)
+        for cid in creator_ids:
+            await self.dh.get_username(cid)
 
-                if post_to_forum:
-                    level_data = {
-                        'code': code,
-                        'imgur_url': imgur_url,
-                        'name': imgur_data['title'],
-                        'creators': creator_ids,
-                        'mode': mode,
-                    }
-                    await self.post_level_to_forum(level_data, creator_names, mode)
-                return True
-
-            # Duplicate of a visible level, or hidden-upload attempt of an existing level
-            return False
-
-        level_data = {
-            'imgur_url': imgur_url,
-            'name': imgur_data['title'],
-            'code': code,
-            'mode': mode,
-            'creators': creator_ids,
-            'tournament_legal': False,
-            'hidden': hidden,
-        }
-
-        level_added = await self.dh.add_level(level_data)
-        if not level_added:
-            return False
-
-        if post_to_forum and not hidden:
+        is_new = result.get("created") or result.get("unhidden")
+        if post_to_forum and is_new and not result.get("hidden"):
+            level_data = {
+                "code": result["code"],
+                "imgur_url": result["imgur_url"],
+                "name": result["name"],
+                "creators": creator_ids,
+                "mode": result["mode"],
+            }
             await self.post_level_to_forum(level_data, creator_names, mode)
-        return True
+
+        return result, None
+
+    async def _upload_via_api(self, imgur_url, mode, creator_ids, hidden):
+        """POST the level to the API.
+        Returns (data, None) on success or (None, message) on any failure."""
+        payload = {
+            "imgur_url": imgur_url,
+            "mode": mode,
+            "creators": creator_ids,
+            "hidden": hidden,
+        }
+        headers = {"X-API-Key": self.api_key} if self.api_key else {}
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.api_base_url}/levels/", json=payload, headers=headers
+                ) as resp:
+                    if resp.status in (200, 201):
+                        return await resp.json(), None
+
+                    detail = None
+                    try:
+                        detail = (await resp.json()).get("detail")
+                    except Exception:
+                        pass
+
+                    if resp.status in (401, 403, 503):
+                        # Config/auth problem — operator's fault, not the user's.
+                        print(f"[level upload] auth/config error {resp.status}: {detail}")
+                        return None, "Upload service is misconfigured. Contact an admin."
+                    if resp.status == 409:
+                        return None, detail or "A level with that code already exists."
+                    if resp.status == 400:
+                        return None, detail or "Invalid Imgur link or level code."
+                    print(f"[level upload] unexpected status {resp.status}: {detail}")
+                    return None, "Upload failed due to an unexpected error."
+        except aiohttp.ClientError as e:
+            print(f"[level upload] network error: {e}")
+            return None, "Upload service is unavailable. Try again later."
 
     async def post_level_to_forum(self, level_data, creator_names, mode):
         forum_channel_id = int(os.getenv('LEVEL_FORUM_CHANNEL_ID'))
         forum_channel = discord.utils.get(self.bot.guild.forums, id=forum_channel_id)
 
         tag_map = {tag.id: tag for tag in forum_channel.available_tags}
-        tag_id = MODE_TAGS[mode]
-        forum_tag = tag_map[tag_id]
+        forum_tag = tag_map[MODE_TAGS[mode]]
 
         title = f"{level_data['code']} - {level_data['name']} - by {creator_names}"
-        content = level_data['imgur_url']
         post = await forum_channel.create_thread(
             name=title,
-            content=content,
-            applied_tags=[forum_tag]
+            content=level_data['imgur_url'],
+            applied_tags=[forum_tag],
         )
-
         await self.dh.attach_post_to_level(level_data['code'], post.thread.id)
 
     async def remove_level(self, code, user):
@@ -122,11 +123,3 @@ class LevelHandler:
 
         await self.dh.remove_level(code)
         return True
-
-    async def verify_code(self, code):
-        print(code[4], code, len(code))
-        if not code[4] == '-' or len(code) != 9:
-            print('false!!')
-            return False
-        return True
-

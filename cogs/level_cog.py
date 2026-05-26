@@ -12,30 +12,25 @@ class LevelCog(commands.Cog):
     )
     @app_commands.describe(imgur_link="Imgur link", creator_id="Creator ID")
     @app_commands.checks.has_any_role("Level Arbiter", "Event Organizer", "Moderator")
-    async def add_level(self, interaction: discord.Interaction, imgur_link: str, creator_id: str):
+    async def add_level(self, interaction, imgur_link, creator_id):
         await interaction.response.defer(ephemeral=True)
 
         if not creator_id.isdigit():
-            await interaction.followup.send(f"Error: invalid creator ID")
+            await interaction.followup.send("Error: invalid creator ID")
             return
         creator_id = int(creator_id)
-        creator = discord.utils.get(self.bot.guild.members)
 
-        level = await self.bot.ih.get_imgur_data(imgur_link)
-        if not level:
-            await interaction.followup.send(f"Error: invalid imgur link")
+        result, error = await self.bot.lh.post_level(
+            imgur_link, "party", [creator_id], post_to_forum=False
+        )
+        if not result:
+            await interaction.followup.send(f"Error: {error}")
             return
 
-        mode = "party"
-        post_to_forum = False
-        level_posted = await self.bot.lh.post_level(imgur_link, mode, [creator_id], post_to_forum)
-
-        if not level_posted:
-            await interaction.followup.send(f"Error: Failed to post level (perhaps it already exists?)")
-        await interaction.followup.send(f"Level {level['title']} successfully added to database")
-
-        await self.bot.lh.set_tourney_legality(level['code'], legality=True)
-        return
+        await interaction.followup.send(
+            f"Level {result['name']} successfully added to database"
+        )
+        await self.bot.lh.set_tourney_legality(result["code"], legality=True)
 
     @app_commands.command(
         name="legality",

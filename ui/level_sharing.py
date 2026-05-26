@@ -179,14 +179,11 @@ class LevelSharingView(discord.ui.View):
 
     async def handle_mode_selection(self, interaction, imgur_link, mode, creators, hidden=False):
         await interaction.response.defer(ephemeral=True)
-        level_posted = await self.bot.lh.post_level(imgur_link, mode, creators, hidden=hidden)
-        if level_posted:
+        result, error = await self.bot.lh.post_level(imgur_link, mode, creators, hidden=hidden)
+        if result:
             await interaction.delete_original_response()
         else:
-            await interaction.followup.send(
-                "Failed to post level: Either Level already exists or Imgur link is invalid.",
-                ephemeral=True,
-            )
+            await interaction.followup.send(f"Failed to post level: {error}", ephemeral=True)
 
     async def remove_level(self, interaction: discord.Interaction):
         modal = RemoveLevelModal(self.handle_remove_level)
