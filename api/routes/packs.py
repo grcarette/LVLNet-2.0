@@ -279,6 +279,7 @@ async def list_packs(request: Request):
                 "packId": "$pack_id",
                 "latestVersion": "$latest_version",
                 "name": "$_latest.name",
+                "authorId": "$author",
                 "author": {"$arrayElemAt": ["$_author.username", 0]},
                 "thumbnailUrl": {
                     "$cond": [
@@ -325,6 +326,7 @@ async def get_pack(
         "packId": pack["pack_id"],
         "version": version_data["version"],
         "name": version_data["name"],
+        "authorId": pack["author"],
         "author": author_name,
         "description": version_data.get("description", ""),
         "thumbnailUrl": thumbnail_url,
