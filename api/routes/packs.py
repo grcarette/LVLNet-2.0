@@ -2,14 +2,14 @@ import io
 import secrets
 import string
 
-from fastapi import APIRouter, HTTPException, Request, Query, Form, File, UploadFile, Response
+from fastapi import APIRouter, HTTPException, Request, Query, Form, File, UploadFile, Response, Depends
 from typing import Optional, List
 from datetime import datetime, timezone
 from bson.binary import Binary
 from PIL import Image, UnidentifiedImageError
 
 from ..db import db
-from api.utils import limiter
+from api.utils import limiter, require_api_key
 
 router = APIRouter(prefix="/packs", tags=["packs"])
 
@@ -78,7 +78,7 @@ async def _generate_unique_pack_id() -> str:
             return pack_id
 
 
-@router.post("/")
+@router.post("/", dependencies=[Depends(require_api_key)])
 @limiter.limit("30/minute")
 async def create_pack(
     request: Request,
@@ -122,6 +122,7 @@ async def create_pack(
         "pack_id": pack_id,
         "author": author,
         "latest_version": 1,
+        "deleted": False,
         "created_at": now,
         "updated_at": now,
         "versions": [
@@ -140,10 +141,113 @@ async def create_pack(
     return {"packId": pack_id, "version": 1, "levelCount": len(levels)}
 
 
+@router.put("/{pack_id}", dependencies=[Depends(require_api_key)])
+@limiter.limit("30/minute")
+async def update_pack(
+    request: Request,
+    pack_id: str,
+    author: int = Form(..., description="discord_id of the user making the update"),
+    levels: List[str] = Form(...),
+    name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    thumbnail: Optional[UploadFile] = File(None),
+):
+    """Update a pack by appending a new version with the supplied level codes.
+
+    The submitter (`author`) must be the original author of the pack. The new
+    version's `levels` is a full replacement, not a merge, and is held to the same
+    `MIN_PACK_LEVELS` floor as creation. `name`, `description`, and `thumbnail` are
+    optional: if omitted they carry over from the current latest version. A supplied
+    `thumbnail` runs through the same validate/downscale/PNG pipeline as creation.
+
+    Sent as multipart/form-data: `author`, repeated `levels` fields, plus optional
+    `name`, `description`, and `thumbnail`."""
+    pack = await db.packs.find_one({"pack_id": pack_id, "deleted": {"$ne": True}})
+    if not pack:
+        raise HTTPException(404, "Pack not found")
+
+    if pack["author"] != author:
+        raise HTTPException(403, "You are not the author of this pack")
+
+    levels = [code.strip() for code in levels if code.strip()]
+    if len(levels) < MIN_PACK_LEVELS:
+        raise HTTPException(400, f"A pack must contain at least {MIN_PACK_LEVELS} levels")
+
+    # Current latest version supplies any fields the caller didn't override.
+    current = next(
+        (v for v in pack["versions"] if v["version"] == pack["latest_version"]),
+        {},
+    )
+
+    now = datetime.now(timezone.utc)
+    new_version_number = pack["latest_version"] + 1
+
+    # Use the newly uploaded thumbnail (validated + normalized) if present,
+    # otherwise carry the previous version's thumbnail forward unchanged.
+    if thumbnail is not None:
+        thumbnail_doc = await _process_thumbnail(thumbnail)
+    else:
+        thumbnail_doc = current.get("thumbnail")
+
+    if name is not None:
+        name = name.strip()
+        if not name:
+            raise HTTPException(400, "Pack name must not be empty")
+
+    new_version = {
+        "version": new_version_number,
+        "name": name if name is not None else current.get("name", ""),
+        "description": description if description is not None else current.get("description", ""),
+        "thumbnail": thumbnail_doc,
+        "levels": levels,
+        "created_at": now,
+    }
+
+    await db.packs.update_one(
+        {"pack_id": pack_id},
+        {
+            "$push": {"versions": new_version},
+            "$set": {"latest_version": new_version_number, "updated_at": now},
+        },
+    )
+
+    return {"packId": pack_id, "version": new_version_number, "levelCount": len(levels)}
+
+
+@router.delete("/{pack_id}", dependencies=[Depends(require_api_key)])
+@limiter.limit("30/minute")
+async def delete_pack(
+    request: Request,
+    pack_id: str,
+    author: int = Form(..., description="discord_id of the user requesting the delete"),
+):
+    """Soft-delete a pack by flagging `deleted: True`. The document is kept but
+    is excluded from every other read endpoint.
+
+    Requires a valid API key (header) AND that `author` matches the pack's
+    original author, so a key holder can only delete their own packs. Sent as
+    multipart/form-data with a single `author` field."""
+    pack = await db.packs.find_one({"pack_id": pack_id, "deleted": {"$ne": True}})
+    if not pack:
+        raise HTTPException(404, "Pack not found")
+
+    if pack["author"] != author:
+        raise HTTPException(403, "You are not the author of this pack")
+
+    await db.packs.update_one(
+        {"pack_id": pack_id},
+        {"$set": {"deleted": True}},
+    )
+
+    return {"packId": pack_id, "deleted": True}
+
+
 @router.get("/")
 @limiter.limit("60/minute")
 async def list_packs(request: Request):
     pipeline = [
+        # Exclude soft-deleted packs
+        {"$match": {"deleted": {"$ne": True}}},
         # Pull out the version object that matches latest_version
         {
             "$addFields": {
@@ -198,7 +302,7 @@ async def get_pack(
     pack_id: str,
     version: Optional[int] = Query(None, description="Specific version (omit for latest)")
 ):
-    pack = await db.packs.find_one({"pack_id": pack_id})
+    pack = await db.packs.find_one({"pack_id": pack_id, "deleted": {"$ne": True}})
     if not pack:
         raise HTTPException(404, "Pack not found")
 
@@ -234,7 +338,7 @@ async def get_pack(
 @limiter.limit("120/minute")
 async def get_pack_versions(request: Request, pack_id: str):
     pack = await db.packs.find_one(
-        {"pack_id": pack_id},
+        {"pack_id": pack_id, "deleted": {"$ne": True}},
         {"_id": 0, "pack_id": 1, "versions": 1}
     )
     if not pack:
@@ -260,7 +364,7 @@ async def get_pack_thumbnail(
     version: Optional[int] = Query(None, description="Specific version (omit for latest)")
 ):
     pack = await db.packs.find_one(
-        {"pack_id": pack_id},
+        {"pack_id": pack_id, "deleted": {"$ne": True}},
         {"_id": 0, "latest_version": 1, "versions": 1},
     )
     if not pack:
