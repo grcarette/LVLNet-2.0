@@ -177,31 +177,28 @@ VALID_MODES = ("party", "challenge")
 
 
 def _is_valid_level_code(code: str) -> bool:
-    # 9 chars, dash in the middle: e.g. "ABCD-EFGH"
     return len(code) == 9 and code[4] == "-"
 
 
-@router.post("/", dependencies=[Depends(require_api_key)])
-@limiter.limit("30/minute")
-async def create_level(request: Request, body: LevelCreateRequest):
+async def _upload_one(body: LevelCreateRequest):
+    """Resolve, validate, and write a single level.
+    Returns (result, None) on success or (None, (status, reason)) on failure."""
     mode = body.mode.lower()
     if mode not in VALID_MODES:
-        raise HTTPException(400, f"mode must be one of {VALID_MODES}")
+        return None, (400, f"mode must be one of {VALID_MODES}")
 
     imgur_data = await get_imgur_data(body.imgur_url)
     if not imgur_data:
-        raise HTTPException(400, "Could not resolve the Imgur link")
+        return None, (400, "Could not resolve the Imgur link")
 
     code = imgur_data["code"]
     if not _is_valid_level_code(code):
-        raise HTTPException(400, "Imgur description is not a valid level code")
+        return None, (400, "Imgur description is not a valid level code")
 
     creator_ids = body.creators
     existing = await db.levels.find_one({"code": code})
 
     if existing:
-        # Un-hide path: stored level is hidden, this upload isn't, and the
-        # uploader is one of the stored creators.
         if (
             existing.get("hidden")
             and not body.hidden
@@ -215,10 +212,15 @@ async def create_level(request: Request, body: LevelCreateRequest):
                 "hidden": False,
             }
             await db.levels.update_one({"code": code}, {"$set": update})
-            return {"code": code, "created": False, "unhidden": True, **update}
+            return {
+                "code": code,
+                "created": False,
+                "unhidden": True,
+                "tournament_legal": existing.get("tournament_legal", False),
+                **update,
+            }, None
 
-        # Visible duplicate, or a hidden-upload attempt over an existing level.
-        raise HTTPException(409, "A level with that code already exists")
+        return None, (409, "A level with that code already exists")
 
     level_doc = {
         "imgur_url": body.imgur_url,
@@ -240,4 +242,32 @@ async def create_level(request: Request, body: LevelCreateRequest):
         "tournament_legal": False,
         "created": True,
         "unhidden": False,
-    }
+    }, None
+
+
+@router.post("/", dependencies=[Depends(require_api_key)])
+@limiter.limit("30/minute")
+async def create_level(request: Request, body: LevelCreateRequest):
+    result, error = await _upload_one(body)
+    if error:
+        raise HTTPException(error[0], error[1])
+    return result
+
+
+@router.post("/bulk", dependencies=[Depends(require_api_key)])
+@limiter.limit("10/minute")
+async def bulk_create_levels(
+    request: Request, body: List[LevelCreateRequest] = Body(...)
+):
+    if not body:
+        raise HTTPException(400, "Request body must contain at least one level")
+
+    uploaded, failed = [], []
+    for item in body:
+        result, error = await _upload_one(item)
+        if error:
+            failed.append({"imgur_url": item.imgur_url, "reason": error[1]})
+        else:
+            uploaded.append(result)
+
+    return {"uploaded": uploaded, "failed": failed}
