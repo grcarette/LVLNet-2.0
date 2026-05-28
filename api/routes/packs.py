@@ -68,13 +68,16 @@ def _generate_pack_id() -> str:
 
 
 async def _generate_unique_pack_id() -> str:
-    """Generate a pack ID that isn't already taken. Collisions are astronomically
-    unlikely (26**10), but there's no unique index on pack_id, so a duplicate would
-    otherwise insert a second document silently."""
+    """Generate a pack ID that isn't already taken in EITHER `packs` or
+    `pack_drafts`. Collisions are astronomically unlikely (26**10), but there's no
+    unique index on pack_id, so a duplicate would otherwise insert a second
+    document silently. Checking both collections means a draft's ID survives
+    publishing (the same ID moves from `pack_drafts` to `packs`)."""
     while True:
         pack_id = _generate_pack_id()
-        existing = await db.packs.find_one({"pack_id": pack_id}, {"_id": 1})
-        if existing is None:
+        in_packs = await db.packs.find_one({"pack_id": pack_id}, {"_id": 1})
+        in_drafts = await db.pack_drafts.find_one({"pack_id": pack_id}, {"_id": 1})
+        if in_packs is None and in_drafts is None:
             return pack_id
 
 
@@ -326,3 +329,47 @@ async def get_pack_thumbnail(request: Request, pack_id: str):
         media_type=thumb.get("content_type", "image/png"),
         headers={"X-Content-Type-Options": "nosniff"},
     )
+
+
+@router.get("/by-author/{discord_id}", dependencies=[Depends(require_api_key)])
+@limiter.limit("60/minute")
+async def list_packs_by_author(request: Request, discord_id: int):
+    """All of a user's packs — published AND work-in-progress drafts — in one
+    list, each tagged with a `status` of "published" or "draft".
+
+    Because this returns private drafts, it requires the API key (unlike the
+    public `GET /packs/` listing). Results are sorted most-recently-updated first.
+    Draft thumbnails are served from `/packs/drafts/{id}/thumbnail`; published ones
+    from `/packs/{id}/thumbnail`."""
+    published = await db.packs.find(
+        {"author": discord_id, "deleted": {"$ne": True}}
+    ).to_list(length=None)
+    drafts = await db.pack_drafts.find({"author": discord_id}).to_list(length=None)
+
+    user = await db.users.find_one({"discord_id": discord_id})
+    author_name = user["username"] if user else "Unknown User"
+
+    items = []
+    for p in published:
+        items.append({
+            "packId": p["pack_id"],
+            "status": "published",
+            "name": p.get("name", ""),
+            "levelCount": len(p.get("levels", [])),
+            "thumbnailUrl": f"/packs/{p['pack_id']}/thumbnail" if p.get("thumbnail") else None,
+            "createdAt": p.get("created_at"),
+            "updatedAt": p.get("updated_at"),
+        })
+    for d in drafts:
+        items.append({
+            "packId": d["pack_id"],
+            "status": "draft",
+            "name": d.get("name", ""),
+            "levelCount": len(d.get("levels", [])),
+            "thumbnailUrl": f"/packs/drafts/{d['pack_id']}/thumbnail" if d.get("thumbnail") else None,
+            "createdAt": d.get("created_at"),
+            "updatedAt": d.get("updated_at"),
+        })
+
+    items.sort(key=lambda x: x.get("updatedAt") or x.get("createdAt"), reverse=True)
+    return {"authorId": discord_id, "author": author_name, "packs": items}

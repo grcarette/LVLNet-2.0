@@ -5,6 +5,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from api.routes.packs import router as packs_router
+from api.routes.drafts import router as drafts_router
 from api.routes.levels import router as levels_router
 from api.routes.times import router as times_router
 from api.routes.versions import router as versions_router
@@ -52,6 +53,10 @@ async def lifespan(app: FastAPI):
         [("pack_id", 1), ("mode", 1), ("deaths", 1), ("total_seconds", 1)],
         "deathless_board",
     )
+    # Author lookups for `GET /packs/by-author/{discord_id}`, which scans both
+    # the published packs and the WIP drafts for one author.
+    await _ensure_index(db.packs, [("author", 1)], "packs_author")
+    await _ensure_index(db.pack_drafts, [("author", 1)], "drafts_author")
     yield
 
 
@@ -61,6 +66,9 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(levels_router)
+# Mount drafts before packs so /packs/drafts/... is matched by the drafts router
+# and never captured by the packs `/{pack_id}` parameter route.
+app.include_router(drafts_router)
 app.include_router(packs_router)
 app.include_router(times_router)
 app.include_router(versions_router)
