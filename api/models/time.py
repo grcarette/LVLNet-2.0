@@ -14,12 +14,15 @@ class TimeSubmission(BaseModel):
     Aliases map the wire format onto snake_case attributes; `populate_by_name`
     lets tests/other callers construct it with either spelling. `extra="ignore"`
     keeps us liberal in what we accept (brief: "Be liberal ... on submit").
+
+    Note: there is intentionally no `version` field. Packs are immutable and have
+    no versions, so a board is identified by (packId, mode) alone. An older client
+    that still sends a `version` key is fine — `extra="ignore"` drops it silently.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     pack_id: str = Field(default="", alias="packId")
-    version: int = 1
     gsid: str
     platform_id: str = Field(default="", alias="platformId")
     display_name: str = Field(default="", alias="displayName")

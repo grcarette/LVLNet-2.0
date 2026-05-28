@@ -24,17 +24,16 @@ router = APIRouter(prefix="/packs", tags=["times"])
 MIN_RANKED_SECONDS = 0.0
 MAX_RANKED_SECONDS = 24 * 60 * 60  # 24h of gameplay time — generous, adjustable.
 
-# Packs are immutable single releases now: a pack has no versions, so every
-# board collapses onto one version. We still store/accept a `version` field for
-# wire compatibility, but ranking and lookups always use this constant.
-BOARD_VERSION = 1
-
 
 def _best_per_player_pipeline(
-    pack_id: str, version: int, mode: str, deathless_only: bool = False
+    pack_id: str, mode: str, deathless_only: bool = False
 ) -> list:
     """Reduce the full submission history to one row per player (their best,
     earliest-on-tie) for a single board, sorted ready for ranking.
+
+    A board is identified by (pack_id, mode). Packs are immutable, so there is no
+    version dimension: every time ever recorded for the pack competes on the same
+    board.
 
     Tiebreak (open question #5): equal totals -> earliest submission ranks higher.
     When deathless_only is True, only submissions where deaths == 0 are considered;
@@ -42,7 +41,6 @@ def _best_per_player_pipeline(
     """
     match: dict = {
         "pack_id": pack_id,
-        "version": version,
         "mode": mode,
         "total_seconds": {
             "$gt": MIN_RANKED_SECONDS,
@@ -71,7 +69,7 @@ def _best_per_player_pipeline(
 
 
 async def _ranked_board(
-    pack_id: str, version: int, mode: str, limit: Optional[int] = None,
+    pack_id: str, mode: str, limit: Optional[int] = None,
     deathless_only: bool = False,
 ) -> list:
     """Full board as plain dicts with the exact camelCase keys the client wants.
@@ -79,7 +77,7 @@ async def _ranked_board(
     so a `rank` returned on submit is correct even when the row is past `limit`.
     """
     rows = await db.times.aggregate(
-        _best_per_player_pipeline(pack_id, version, mode, deathless_only)
+        _best_per_player_pipeline(pack_id, mode, deathless_only)
     ).to_list(length=None)
 
     board = [
@@ -100,7 +98,10 @@ async def _ranked_board(
 async def submit_time(request: Request, pack_id: str, submission: TimeSubmission):
     """Record a completion time. Full history is kept; the leaderboard is the
     best time per (gsid, packId, mode). Fire-and-forget for the client, but we
-    return an advisory ack designed for future UI ("New PB! Rank 4")."""
+    return an advisory ack designed for future UI ("New PB! Rank 4").
+
+    There is no pack version: a pack's levels are final, so a pack has exactly one
+    board per mode and a time can never be orphaned by a "new version"."""
 
     # --- Path is authoritative; body packId must agree if present. ---
     if submission.pack_id and submission.pack_id != pack_id:
@@ -114,12 +115,8 @@ async def submit_time(request: Request, pack_id: str, submission: TimeSubmission
     if mode is None:
         raise HTTPException(400, f"mode must be one of {VALID_MODES}")
 
-    # Packs are single, immutable releases — every board is BOARD_VERSION. We
-    # ignore whatever `version` the client sent so a pack always has exactly one
-    # leaderboard and times can never be orphaned by a "new version".
-    version = BOARD_VERSION
-
-    # --- Version gate: authoritative server-side enforcement of the submit floor. ---
+    # --- Client *build* version gate (unrelated to packs): authoritative
+    #     server-side enforcement of the submit floor. ---
     min_ver = os.getenv("MIN_SUBMIT_VERSION", "").strip()
     if min_ver:
         client_ver = (submission.client_version or "").strip()
@@ -165,7 +162,6 @@ async def submit_time(request: Request, pack_id: str, submission: TimeSubmission
     prev_best = await db.times.find_one(
         {
             "pack_id": pack_id,
-            "version": version,
             "mode": mode,
             "gsid": gsid,
             "total_seconds": {"$gt": MIN_RANKED_SECONDS, "$lte": MAX_RANKED_SECONDS},
@@ -182,7 +178,6 @@ async def submit_time(request: Request, pack_id: str, submission: TimeSubmission
     client_ip = request.client.host if request.client else None
     doc = {
         "pack_id": pack_id,
-        "version": version,
         "mode": mode,
         "gsid": gsid,
         "platform_id": submission.platform_id or "",
@@ -204,7 +199,6 @@ async def submit_time(request: Request, pack_id: str, submission: TimeSubmission
     await db.times.update_many(
         {
             "pack_id": pack_id,
-            "version": version,
             "mode": mode,
             "gsid": gsid,
         },
@@ -219,7 +213,7 @@ async def submit_time(request: Request, pack_id: str, submission: TimeSubmission
     # --- Resolve current rank on the (updated) board. 0 = not ranked. ---
     rank = 0
     if within_bounds:
-        board = await _ranked_board(pack_id, version, mode)
+        board = await _ranked_board(pack_id, mode)
         rank = next((e["rank"] for e in board if e["gsid"] == gsid), 0)
 
     return {"accepted": True, "newBest": new_best, "rank": rank}
@@ -243,7 +237,7 @@ async def get_leaderboard(
         raise HTTPException(400, f"mode must be one of {VALID_MODES}")
 
     entries = await _ranked_board(
-        pack_id, BOARD_VERSION, resolved_mode, limit=limit, deathless_only=deathless
+        pack_id, resolved_mode, limit=limit, deathless_only=deathless
     )
     return {"entries": entries}
 
@@ -265,7 +259,6 @@ async def get_player_splits(
     best = await db.times.find_one(
         {
             "pack_id": pack_id,
-            "version": BOARD_VERSION,
             "mode": resolved_mode,
             "gsid": gsid,
             "total_seconds": {"$gt": MIN_RANKED_SECONDS, "$lte": MAX_RANKED_SECONDS},
@@ -276,12 +269,11 @@ async def get_player_splits(
     if not best:
         raise HTTPException(404, "No time found for that player on this board")
 
-    board = await _ranked_board(pack_id, BOARD_VERSION, resolved_mode)
+    board = await _ranked_board(pack_id, resolved_mode)
     rank = next((e["rank"] for e in board if e["gsid"] == gsid), 0)
 
     return {
         "packId": pack_id,
-        "version": BOARD_VERSION,
         "mode": resolved_mode,
         "rank": rank,
         "gsid": gsid,
@@ -292,7 +284,9 @@ async def get_player_splits(
 
 
 def _parse_version(v: str) -> list:
-    """Parse a dotted version string into a list of ints. Tolerates pre-release suffixes."""
+    """Parse a dotted CLIENT BUILD version string into a list of ints. Tolerates
+    pre-release suffixes. (Used only by the MIN_SUBMIT_VERSION gate above — this
+    has nothing to do with pack/leaderboard versions, which no longer exist.)"""
     parts = []
     for seg in v.split("."):
         digits = ""
@@ -306,7 +300,7 @@ def _parse_version(v: str) -> list:
 
 
 def _version_less_than(a: str, b: str) -> bool:
-    """Return True if version string a is strictly less than b."""
+    """Return True if client build version string a is strictly less than b."""
     pa, pb = _parse_version(a), _parse_version(b)
     n = max(len(pa), len(pb))
     for i in range(n):

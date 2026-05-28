@@ -12,32 +12,46 @@ from api.utils import limiter
 from api.db import db
 
 
+async def _ensure_index(collection, keys, name):
+    """Create an index, healing a legacy spec stored under the same name.
+
+    create_index is a no-op when an index with this name and these exact keys
+    already exists, so steady-state startups do nothing. If an index with this
+    name exists with a *different* key pattern — e.g. an old leaderboard index
+    that still included `version` — Mongo raises a conflict; we drop the stale
+    index and recreate it with the new (versionless) spec. Any failure, including
+    Mongo being briefly unavailable, is swallowed so startup is never blocked."""
+    try:
+        await collection.create_index(keys, name=name)
+    except Exception:
+        try:
+            await collection.drop_index(name)
+            await collection.create_index(keys, name=name)
+        except Exception:
+            pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Indexes for the leaderboard read/write paths. create_index is idempotent,
-    # and we never block startup if Mongo is briefly unavailable.
-    try:
-        await db.times.create_index(
-            [("pack_id", 1), ("version", 1), ("mode", 1), ("total_seconds", 1)],
-            name="board_rank",
-        )
-        await db.times.create_index(
-            [
-                ("pack_id", 1),
-                ("version", 1),
-                ("mode", 1),
-                ("gsid", 1),
-                ("total_seconds", 1),
-                ("created_at", 1),
-            ],
-            name="player_best",
-        )
-        await db.times.create_index(
-            [("pack_id", 1), ("version", 1), ("mode", 1), ("deaths", 1), ("total_seconds", 1)],
-            name="deathless_board",
-        )
-    except Exception:
-        pass
+    # Leaderboard read/write indexes. A board is keyed on (pack_id, mode) — packs
+    # are immutable, so `version` is no longer part of a board's identity. The old
+    # indexes (which led with pack_id then version) are self-healed: _ensure_index
+    # drops and recreates any index found under these names with the legacy spec.
+    await _ensure_index(
+        db.times,
+        [("pack_id", 1), ("mode", 1), ("total_seconds", 1)],
+        "board_rank",
+    )
+    await _ensure_index(
+        db.times,
+        [("pack_id", 1), ("mode", 1), ("gsid", 1), ("total_seconds", 1), ("created_at", 1)],
+        "player_best",
+    )
+    await _ensure_index(
+        db.times,
+        [("pack_id", 1), ("mode", 1), ("deaths", 1), ("total_seconds", 1)],
+        "deathless_board",
+    )
     yield
 
 
