@@ -1,27 +1,40 @@
 from datetime import datetime, timezone
 from typing import Optional, List
 
-from fastapi import APIRouter, HTTPException, Request, Form, File, UploadFile, Response, Depends
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Request,
+    Form,
+    File,
+    UploadFile,
+    Response,
+    Query,
+)
 from pymongo import ReturnDocument
 
 from ..db import db
-from api.utils import limiter, require_api_key
-from .packs import _process_thumbnail, _generate_unique_pack_id, MIN_PACK_LEVELS
+from api.utils import limiter
+from .packs import (
+    _process_thumbnail,
+    _generate_unique_pack_id,
+    MIN_PACK_LEVELS,
+    ensure_account,
+)
 
-# Work-in-progress packs. These live in their OWN collection (`pack_drafts`),
-# never in `packs`. That is deliberate: a published pack is immutable (its levels
-# are frozen because the leaderboard depends on the course never changing), while
-# a draft is the opposite — its whole purpose is that you keep adding maps. Keeping
-# them physically separate means:
-#   * a draft can never leak into a public listing or a leaderboard, because it
-#     simply isn't in the collection those endpoints query — no `is_wip` filter to
-#     remember in six places;
-#   * drafts get looser rules (no name yet, fewer than the publish minimum of
-#     levels) and the real validation runs exactly once, at publish time;
-#   * there is no code path anywhere that mutates a published pack's levels.
+# Work-in-progress packs created from the game client. These live in their OWN
+# collection (`pack_drafts`), never in `packs`. That separation is deliberate:
+# a published pack is immutable (its levels are frozen because the leaderboard
+# depends on the course never changing), while a draft's whole purpose is that
+# you keep adding maps. Keeping them physically separate means a draft can never
+# leak into a public listing or leaderboard, drafts get looser rules, and the
+# real validation runs exactly once, at publish time.
 #
-# Everything here requires the API key. Drafts are private; they should not be
-# enumerable or readable by the public.
+# Authorship is the player's gsid (string), matching the keyless player model
+# already used by /vote and /times. All routes here are KEYLESS and gsid-owned:
+# the submitter must pass the gsid that authored the draft. (Per the project
+# trust model the gsid is client-asserted and forgeable; accepted as negligible
+# at this scale, same as votes/times.)
 router = APIRouter(prefix="/packs/drafts", tags=["drafts"])
 
 
@@ -32,29 +45,57 @@ async def _get_draft_or_404(pack_id: str) -> dict:
     return draft
 
 
-def _require_owner(draft: dict, author: int) -> None:
-    if draft["author"] != author:
+def _require_owner(draft: dict, gsid: str) -> None:
+    if draft.get("author") != gsid:
         raise HTTPException(403, "You are not the author of this draft")
 
 
-@router.post("", dependencies=[Depends(require_api_key)])
+def _draft_summary(draft: dict) -> dict:
+    return {
+        "packId": draft["pack_id"],
+        "status": "draft",
+        "name": draft.get("name", ""),
+        "levelCount": len(draft.get("levels", [])),
+        "thumbnailUrl": (
+            f"/packs/drafts/{draft['pack_id']}/thumbnail"
+            if draft.get("thumbnail")
+            else None
+        ),
+        "createdAt": draft["created_at"],
+        "updatedAt": draft["updated_at"],
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Collection-level routes (no {pack_id}). Defined first for clarity; note the
+# whole router is mounted BEFORE the packs router so GET /packs/drafts is not
+# shadowed by GET /packs/{pack_id}.
+# --------------------------------------------------------------------------- #
+
+@router.post("")
 @limiter.limit("30/minute")
 async def create_draft(
     request: Request,
-    author: int = Form(...),
+    gsid: str = Form(..., description="author gsid"),
     name: str = Form(""),
     description: str = Form(""),
+    displayName: str = Form("", description="author display name to store/resolve"),
     levels: Optional[List[str]] = Form(None),
     thumbnail: Optional[UploadFile] = File(None),
 ):
-    """Start a work-in-progress pack. Everything except `author` is optional — a
-    draft may begin with no name and no levels. Nothing here is validated against
-    the publish rules; that happens later, at `POST .../publish`.
+    """Start a work-in-progress pack authored by `gsid`. Everything except `gsid`
+    is optional — a draft may begin with no name and no levels. Nothing here is
+    validated against the publish rules; that happens later, at publish.
 
     The pack ID is generated now and is unique across BOTH `packs` and
     `pack_drafts`, so the ID (and any URL built from it) survives publishing
     unchanged. Sent as multipart/form-data."""
+    gsid = gsid.strip()
+    if not gsid:
+        raise HTTPException(400, "gsid is required")
+
     name = name.strip()
+    display_name = (displayName or "").strip()
     codes = [c.strip() for c in (levels or []) if c.strip()]
 
     now = datetime.now(timezone.utc)
@@ -64,9 +105,12 @@ async def create_draft(
     if thumbnail is not None:
         thumbnail_doc = await _process_thumbnail(thumbnail)
 
+    await ensure_account(gsid, display_name or None)
+
     draft_doc = {
         "pack_id": pack_id,
-        "author": author,
+        "author": gsid,
+        "author_name": display_name or "",
         "name": name,
         "description": description,
         "thumbnail": thumbnail_doc,
@@ -78,25 +122,62 @@ async def create_draft(
     return {"packId": pack_id, "status": "draft", "levelCount": len(codes)}
 
 
-@router.get("/{pack_id}", dependencies=[Depends(require_api_key)])
+@router.get("")
+@limiter.limit("60/minute")
+async def list_my_drafts(
+    request: Request,
+    gsid: str = Query(..., description="author gsid whose drafts to list"),
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(50, ge=1, le=100),
+):
+    """List the drafts authored by `gsid` (the in-game "My Packs" view needs this
+    to show drafts). Does NOT require Discord pairing. Empty list if none."""
+    gsid = gsid.strip()
+    if not gsid:
+        raise HTTPException(400, "gsid is required")
+
+    total = await db.pack_drafts.count_documents({"author": gsid})
+    cursor = (
+        db.pack_drafts.find({"author": gsid})
+        .sort("updated_at", -1)
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+    )
+    drafts = [_draft_summary(d) async for d in cursor]
+    return {
+        "drafts": drafts,
+        "page": page,
+        "pageSize": pageSize,
+        "total": total,
+        "hasMore": page * pageSize < total,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Per-draft routes
+# --------------------------------------------------------------------------- #
+
+@router.get("/{pack_id}")
 @limiter.limit("120/minute")
-async def get_draft(request: Request, pack_id: str):
-    """Fetch a single draft (API key required — drafts are private)."""
+async def get_draft(
+    request: Request,
+    pack_id: str,
+    gsid: str = Query(..., description="author gsid; drafts are private to their author"),
+):
+    """Fetch a single draft's detail (incl. its level codes), used to render the
+    draft before publishing. Readable only by the authoring gsid."""
     draft = await _get_draft_or_404(pack_id)
+    _require_owner(draft, gsid.strip())
 
-    author = await db.users.find_one({"discord_id": draft["author"]})
-    author_name = author["username"] if author else "Unknown User"
-
-    thumbnail_url = None
-    if draft.get("thumbnail"):
-        thumbnail_url = f"/packs/drafts/{pack_id}/thumbnail"
-
+    thumbnail_url = (
+        f"/packs/drafts/{pack_id}/thumbnail" if draft.get("thumbnail") else None
+    )
     return {
         "packId": draft["pack_id"],
         "status": "draft",
         "name": draft.get("name", ""),
         "authorId": draft["author"],
-        "author": author_name,
+        "author": draft.get("author_name") or "Player",
         "description": draft.get("description", ""),
         "thumbnailUrl": thumbnail_url,
         "levels": draft.get("levels", []),
@@ -105,21 +186,21 @@ async def get_draft(request: Request, pack_id: str):
     }
 
 
-@router.post("/{pack_id}/levels", dependencies=[Depends(require_api_key)])
+@router.post("/{pack_id}/levels")
 @limiter.limit("60/minute")
 async def add_level_to_draft(
     request: Request,
     pack_id: str,
-    author: int = Form(...),
+    gsid: str = Form(..., description="author gsid"),
     code: str = Form(..., description="level code to append to the draft"),
 ):
     """Append a map (level code) to a draft. Order is preserved (it defines split
-    order on the eventual leaderboard); a code already present is a no-op (the list
-    is treated as a set). The submitter must be the draft's author.
+    order on the eventual leaderboard); a code already present is a no-op (the
+    list is treated as a set). The submitter must be the draft's author.
 
-    Sent as multipart/form-data: `author`, `code`."""
+    Sent as multipart/form-data: `gsid`, `code`."""
     draft = await _get_draft_or_404(pack_id)
-    _require_owner(draft, author)
+    _require_owner(draft, gsid.strip())
 
     code = code.strip()
     if not code:
@@ -137,18 +218,18 @@ async def add_level_to_draft(
     }
 
 
-@router.delete("/{pack_id}/levels/{level_code}", dependencies=[Depends(require_api_key)])
+@router.delete("/{pack_id}/levels/{level_code}")
 @limiter.limit("60/minute")
 async def remove_level_from_draft(
     request: Request,
     pack_id: str,
     level_code: str,
-    author: int = Form(...),
+    gsid: str = Form(..., description="author gsid"),
 ):
     """Remove a map from a draft by its code. The submitter must be the author.
-    Sent as multipart/form-data: `author`."""
+    Sent as multipart/form-data: `gsid`."""
     draft = await _get_draft_or_404(pack_id)
-    _require_owner(draft, author)
+    _require_owner(draft, gsid.strip())
 
     updated = await db.pack_drafts.find_one_and_update(
         {"pack_id": pack_id},
@@ -162,31 +243,39 @@ async def remove_level_from_draft(
     }
 
 
-@router.put("/{pack_id}", dependencies=[Depends(require_api_key)])
+@router.put("/{pack_id}")
 @limiter.limit("30/minute")
 async def update_draft(
     request: Request,
     pack_id: str,
-    author: int = Form(...),
+    gsid: str = Form(..., description="author gsid"),
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
+    displayName: Optional[str] = Form(None),
     thumbnail: Optional[UploadFile] = File(None),
 ):
-    """Edit a draft's presentation (name / description / thumbnail). Unlike a
-    published pack, a draft's `name` MAY be blank while you're still working — the
-    non-blank requirement is only enforced at publish. Levels are not edited here;
-    use the `/levels` endpoints. The submitter must be the author.
+    """Edit a draft's presentation (name / description / displayName / thumbnail).
+    Unlike a published pack, a draft's `name` MAY be blank while you're still
+    working — the non-blank requirement is only enforced at publish. Levels are
+    not edited here; use the `/levels` endpoints. The submitter must be the
+    author.
 
-    Sent as multipart/form-data: `author`, plus any of `name`, `description`,
-    `thumbnail`."""
+    Sent as multipart/form-data: `gsid`, plus any of `name`, `description`,
+    `displayName`, `thumbnail`."""
     draft = await _get_draft_or_404(pack_id)
-    _require_owner(draft, author)
+    gsid = gsid.strip()
+    _require_owner(draft, gsid)
 
     set_fields = {"updated_at": datetime.now(timezone.utc)}
     if name is not None:
         set_fields["name"] = name.strip()
     if description is not None:
         set_fields["description"] = description
+    if displayName is not None:
+        dn = displayName.strip()
+        set_fields["author_name"] = dn
+        if dn:
+            await ensure_account(gsid, dn)
     if thumbnail is not None:
         set_fields["thumbnail"] = await _process_thumbnail(thumbnail)
 
@@ -194,38 +283,48 @@ async def update_draft(
     return {"packId": pack_id, "status": "draft", "updated": True}
 
 
-@router.delete("/{pack_id}", dependencies=[Depends(require_api_key)])
+@router.delete("/{pack_id}")
 @limiter.limit("30/minute")
-async def delete_draft(request: Request, pack_id: str, author: int = Form(...)):
+async def delete_draft(
+    request: Request, pack_id: str, gsid: str = Form(..., description="author gsid")
+):
     """Hard-delete a draft. Drafts are private and have no leaderboard depending
     on them, so there is no soft-delete. The submitter must be the author.
-    Sent as multipart/form-data: `author`."""
+    Sent as multipart/form-data: `gsid`."""
     draft = await _get_draft_or_404(pack_id)
-    _require_owner(draft, author)
+    _require_owner(draft, gsid.strip())
 
     await db.pack_drafts.delete_one({"pack_id": pack_id})
     return {"packId": pack_id, "deleted": True}
 
 
-@router.post("/{pack_id}/publish", dependencies=[Depends(require_api_key)])
+@router.post("/{pack_id}/publish")
 @limiter.limit("30/minute")
-async def publish_draft(request: Request, pack_id: str, author: int = Form(...)):
+async def publish_draft(
+    request: Request, pack_id: str, gsid: str = Form(..., description="author gsid")
+):
     """Promote a draft to a published, immutable pack: validate it, insert it into
     `packs` (levels frozen, `created_at` = publish time), and remove the draft.
+    The resulting pack is authored by the gsid.
 
-    The submitter must be the author. Publishing enforces the same rules as direct
-    creation: a non-blank name and at least MIN_PACK_LEVELS levels — otherwise the
-    draft is left intact and a 400 is returned.
+    Publishing enforces the same rules as direct creation: a non-blank name and
+    at least MIN_PACK_LEVELS levels — otherwise the draft is left intact and a 400
+    is returned. Per decision (§4-B), publishing does NOT change the visibility of
+    any level the pack contains; an unlisted (hidden) level stays hidden in level
+    listings. Pack playback resolves those levels regardless via the pack-scoped
+    resolver GET /packs/{packId}/levels.
 
     The move is atomic against concurrent publishes: the draft is claimed with a
     single find-and-delete, and if validation fails the claimed draft is restored.
-    Sent as multipart/form-data: `author`."""
+    Sent as multipart/form-data: `gsid`."""
+    gsid = gsid.strip()
+
     # Atomically claim the draft so two concurrent publishes can't both proceed.
     claimed = await db.pack_drafts.find_one_and_delete({"pack_id": pack_id})
     if claimed is None:
         raise HTTPException(404, "Draft not found")
 
-    if claimed["author"] != author:
+    if claimed.get("author") != gsid:
         await db.pack_drafts.insert_one(claimed)  # not ours — put it back
         raise HTTPException(403, "You are not the author of this draft")
 
@@ -238,29 +337,52 @@ async def publish_draft(request: Request, pack_id: str, author: int = Form(...))
     if len(levels) < MIN_PACK_LEVELS:
         await db.pack_drafts.insert_one(claimed)  # rollback
         raise HTTPException(
-            400, f"A pack must contain at least {MIN_PACK_LEVELS} levels before publishing"
+            400,
+            f"A pack must contain at least {MIN_PACK_LEVELS} levels before publishing",
         )
+
+    # Resolve a display name to store on the pack so reads never show
+    # "Unknown User" for gsid-authored content.
+    author_name = claimed.get("author_name")
+    if not author_name:
+        acct = await db.accounts.find_one(
+            {"gsid": claimed["author"]}, {"_id": 0, "display_name": 1}
+        )
+        author_name = (acct or {}).get("display_name")
+    author_name = author_name or "Player"
 
     now = datetime.now(timezone.utc)
     pack_doc = {
         "pack_id": claimed["pack_id"],
-        "author": claimed["author"],
+        "author": claimed["author"],   # gsid (string)
+        "author_name": author_name,    # read-time display name for gsid authors
         "name": name,
         "description": claimed.get("description", ""),
         "thumbnail": claimed.get("thumbnail"),
         "levels": levels,
         "deleted": False,
+        # Seed the denormalized rating aggregates, matching direct pack creation
+        # so the toprated / featured sorts behave identically.
+        "ups": 0,
+        "downs": 0,
+        "wilson": 0.0,
+        "featured": False,
         "created_at": now,
         "updated_at": now,
     }
     await db.packs.insert_one(pack_doc)
-    return {"packId": pack_doc["pack_id"], "status": "published", "levelCount": len(levels)}
+    return {
+        "packId": pack_doc["pack_id"],
+        "status": "published",
+        "levelCount": len(levels),
+    }
 
 
-@router.get("/{pack_id}/thumbnail", dependencies=[Depends(require_api_key)])
+@router.get("/{pack_id}/thumbnail")
 @limiter.limit("120/minute")
 async def get_draft_thumbnail(request: Request, pack_id: str):
-    """Serve a draft's thumbnail (API key required — drafts are private)."""
+    """Serve a draft's thumbnail. (Kept keyless and gsid-free so it can be used
+    directly as an <img> src; thumbnails are not sensitive.)"""
     draft = await db.pack_drafts.find_one(
         {"pack_id": pack_id},
         {"_id": 0, "thumbnail": 1},

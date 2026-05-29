@@ -6,6 +6,7 @@ from slowapi.errors import RateLimitExceeded
 
 from api.routes.packs import router as packs_router
 from api.routes.levels import router as levels_router
+from api.routes.drafts import router as drafts_router
 from api.routes.times import router as times_router
 from api.routes.versions import router as versions_router
 from api.utils import limiter
@@ -59,6 +60,16 @@ async def lifespan(app: FastAPI):
         await db.packs.create_index(
             [("deleted", 1), ("author", 1), ("created_at", -1)], name="packs_mylevels"
         )
+
+        # --- Game-created (gsid-authored) content ---
+        # Speeds up GET /levels/by-user/{gsid} (a player's own uploads).
+        await db.levels.create_index(
+            [("author_gsid", 1)], name="levels_author_gsid"
+        )
+        # Drafts are listed/owned by their author gsid.
+        await db.pack_drafts.create_index(
+            [("author", 1), ("updated_at", -1)], name="drafts_by_author"
+        )
     except Exception:
         pass
     yield
@@ -69,7 +80,13 @@ app = FastAPI(title="LVLNet API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# IMPORTANT: drafts_router MUST be included before packs_router. Both use the
+# `/packs` prefix; the drafts list route is `GET /packs/drafts` while packs has
+# `GET /packs/{pack_id}`. Routes are matched in registration order, so if packs
+# were registered first, a request to `/packs/drafts` would bind
+# `pack_id="drafts"` and never reach the drafts router.
 app.include_router(levels_router)
+app.include_router(drafts_router)
 app.include_router(packs_router)
 app.include_router(times_router)
 app.include_router(versions_router)

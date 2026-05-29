@@ -10,6 +10,7 @@ from PIL import Image, UnidentifiedImageError
 
 from ..db import db, client
 from ..scoring import wilson_lower_bound
+from ..level_projection import creator_lookup_stages
 from api.models.rating import VoteRequest
 from api.utils import limiter, require_api_key
 
@@ -90,26 +91,46 @@ async def _generate_unique_pack_id() -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Author display-name resolution (gsid OR discord_id)
+# --------------------------------------------------------------------------- #
+
+async def _resolve_author_name(doc: dict) -> str:
+    """Resolve the display name for a pack/draft document whose `author` is either
+    a gsid (string, game-created) or a discord_id (int, bot-created).
+
+    gsid authors carry their display name on the record (`author_name`) so reads
+    never need a Discord lookup and never fall back to "Unknown User". discord
+    authors resolve through the `users` collection exactly as before."""
+    author = doc.get("author")
+    if isinstance(author, str):
+        # gsid-authored: never "Unknown User".
+        return doc.get("author_name") or "Player"
+    user = await db.users.find_one({"discord_id": author})
+    return user["username"] if user else "Unknown User"
+
+
+# --------------------------------------------------------------------------- #
 # Accounts / ratings helpers (spec §1.3, §2)
 # --------------------------------------------------------------------------- #
 
-async def ensure_account(gsid: str) -> None:
-    """Auto-create the account for `gsid` on first contact (spec §1.3).
+async def ensure_account(gsid: str, display_name: Optional[str] = None) -> None:
+    """Auto-create the account for `gsid` on first contact (spec §1.3), and keep
+    the player's display name fresh when one is supplied.
 
-    Idempotent upsert: `$setOnInsert` only writes the seed fields the first time,
-    so an existing account (and any later-paired discord_id) is never touched.
-    """
-    await db.accounts.update_one(
-        {"gsid": gsid},
-        {
-            "$setOnInsert": {
-                "gsid": gsid,
-                "discord_id": None,
-                "created_at": datetime.now(timezone.utc),
-            }
-        },
-        upsert=True,
-    )
+    `$setOnInsert` seeds the immutable fields only the first time, so an existing
+    account (and any later-paired discord_id) is never disturbed. When a
+    `display_name` is passed it is `$set` on every call, so a player's current name
+    is always available for resolving gsid-authored content at read time."""
+    update: dict = {
+        "$setOnInsert": {
+            "gsid": gsid,
+            "discord_id": None,
+            "created_at": datetime.now(timezone.utc),
+        }
+    }
+    if display_name:
+        update["$set"] = {"display_name": display_name}
+    await db.accounts.update_one({"gsid": gsid}, update, upsert=True)
 
 
 def _vote_delta(old_value: int, new_value: int) -> tuple[int, int]:
@@ -213,7 +234,11 @@ async def create_pack(
     and converted to PNG server-side, so a non-image or oversized file returns 400.
 
     `name` and `author` are required, and at least three (non-blank) level codes must
-    be supplied; otherwise the request is rejected with a 400."""
+    be supplied; otherwise the request is rejected with a 400.
+
+    (This is the key-protected, discord-authored creation path used by the bot /
+    admin tooling. The game client creates packs via the keyless draft->publish
+    flow instead.)"""
     name = name.strip()
     if not name:
         raise HTTPException(400, "Pack name must not be empty")
@@ -395,15 +420,15 @@ async def list_packs(
     if filter == "mylevels":
         if not gsid:
             raise HTTPException(400, "gsid is required for the mylevels filter")
-        # A pack's author is a discord_id today, so resolve the caller's gsid to
-        # their paired discord_id and match on that. When pack authorship moves to
-        # gsid, this becomes `base_match["author"] = gsid` and the lookup drops out.
+        # gsid is itself a valid authorship identity now: game-created packs are
+        # authored by the gsid directly, so match on it without requiring Discord
+        # pairing. If the player ALSO has a paired discord_id, include packs
+        # authored under that identity too (bot-created packs they own).
+        authors: list = [gsid]
         account = await db.accounts.find_one({"gsid": gsid}, {"_id": 0, "discord_id": 1})
-        author_id = account.get("discord_id") if account else None
-        if author_id is None:
-            # Not paired yet -> no authored packs to show.
-            return {"packs": [], "page": page, "pageSize": pageSize, "total": 0, "hasMore": False}
-        base_match["author"] = author_id
+        if account and account.get("discord_id") is not None:
+            authors.append(account["discord_id"])
+        base_match["author"] = {"$in": authors}
 
     # Normalize denormalized fields so legacy packs (created before ratings) still
     # sort correctly with sensible defaults.
@@ -443,7 +468,15 @@ async def list_packs(
                 "packId": "$pack_id",
                 "name": "$name",
                 "authorId": "$author",
-                "author": {"$arrayElemAt": ["$_author.username", 0]},
+                # discord authors resolve via the users lookup; gsid authors have
+                # no user row, so fall back to the stored display name. Never
+                # surfaces "Unknown User" for a gsid author.
+                "author": {
+                    "$ifNull": [
+                        {"$arrayElemAt": ["$_author.username", 0]},
+                        "$author_name",
+                    ]
+                },
                 "thumbnailUrl": {
                     "$cond": [
                         {"$ifNull": ["$thumbnail", False]},
@@ -496,6 +529,43 @@ async def list_packs(
     }
 
 
+@router.get("/{pack_id}/levels")
+@limiter.limit("120/minute")
+async def resolve_pack_levels(request: Request, pack_id: str):
+    """Resolve a published pack's level metadata BY CODE, including hidden levels.
+
+    Pack playback needs every level the pack contains, but a level uploaded as
+    "unlisted" is stored `hidden: true` and is therefore dropped by the discovery
+    endpoints (POST /levels/batch etc.). A published pack is public and already
+    *contains* these codes, so the hidden flag — which exists to keep a level out
+    of discovery/listings — must not block resolving it here. The level still does
+    not appear in any listing endpoint.
+
+    Returns the same shape as POST /levels/batch (a bare array of level read
+    objects) so it is a drop-in for the client's existing pack-level resolution,
+    in the pack's stored level order."""
+    pack = await db.packs.find_one(
+        {"pack_id": pack_id, "deleted": {"$ne": True}},
+        {"_id": 0, "levels": 1},
+    )
+    if not pack:
+        raise HTTPException(404, "Pack not found")
+
+    codes = pack.get("levels", [])
+    if not codes:
+        return []
+
+    pipeline = [
+        {"$match": {"code": {"$in": codes}}},  # intentionally NOT filtering hidden
+        *creator_lookup_stages(),
+    ]
+    resolved = await db.levels.aggregate(pipeline).to_list(length=len(codes))
+
+    # Preserve the pack's stored order (defines split order on the leaderboard).
+    by_code = {lvl["code"]: lvl for lvl in resolved}
+    return [by_code[c] for c in codes if c in by_code]
+
+
 @router.get("/{pack_id}")
 @limiter.limit("120/minute")
 async def get_pack(
@@ -511,8 +581,8 @@ async def get_pack(
     if not pack:
         raise HTTPException(404, "Pack not found")
 
-    author = await db.users.find_one({"discord_id": pack["author"]})
-    author_name = author["username"] if author else "Unknown User"
+    # author is either a discord_id (int) or a gsid (string); resolve both.
+    author_name = await _resolve_author_name(pack)
 
     thumbnail_url = None
     if pack.get("thumbnail"):
