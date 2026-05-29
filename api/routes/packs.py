@@ -8,7 +8,9 @@ from datetime import datetime, timezone
 from bson.binary import Binary
 from PIL import Image, UnidentifiedImageError
 
-from ..db import db
+from ..db import db, client
+from ..scoring import wilson_lower_bound
+from api.models.rating import VoteRequest
 from api.utils import limiter, require_api_key
 
 router = APIRouter(prefix="/packs", tags=["packs"])
@@ -25,6 +27,15 @@ MIN_PACK_LEVELS = 3
 # and re-encoded to PNG. Nothing the caller claims about the file is trusted.
 MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024  # 5 MB
 THUMBNAIL_BOUNDS = (1024, 768)
+
+# Listing / paging (spec §4.2).
+VALID_FILTERS = ("featured", "toprated", "newest", "mylevels")
+DEFAULT_FILTER = "newest"
+DEFAULT_PAGE_SIZE = 24
+MAX_PAGE_SIZE = 100
+
+# Allowed vote values (spec §2 / §4.1): up, down, retract.
+VALID_VOTE_VALUES = (1, -1, 0)
 
 
 async def _process_thumbnail(upload: UploadFile) -> dict:
@@ -68,17 +79,114 @@ def _generate_pack_id() -> str:
 
 
 async def _generate_unique_pack_id() -> str:
-    """Generate a pack ID that isn't already taken in EITHER `packs` or
-    `pack_drafts`. Collisions are astronomically unlikely (26**10), but there's no
-    unique index on pack_id, so a duplicate would otherwise insert a second
-    document silently. Checking both collections means a draft's ID survives
-    publishing (the same ID moves from `pack_drafts` to `packs`)."""
+    """Generate a pack ID that isn't already taken. Collisions are astronomically
+    unlikely (26**10), but there's no unique index on pack_id, so a duplicate would
+    otherwise insert a second document silently."""
     while True:
         pack_id = _generate_pack_id()
-        in_packs = await db.packs.find_one({"pack_id": pack_id}, {"_id": 1})
-        in_drafts = await db.pack_drafts.find_one({"pack_id": pack_id}, {"_id": 1})
-        if in_packs is None and in_drafts is None:
+        existing = await db.packs.find_one({"pack_id": pack_id}, {"_id": 1})
+        if existing is None:
             return pack_id
+
+
+# --------------------------------------------------------------------------- #
+# Accounts / ratings helpers (spec §1.3, §2)
+# --------------------------------------------------------------------------- #
+
+async def ensure_account(gsid: str) -> None:
+    """Auto-create the account for `gsid` on first contact (spec §1.3).
+
+    Idempotent upsert: `$setOnInsert` only writes the seed fields the first time,
+    so an existing account (and any later-paired discord_id) is never touched.
+    """
+    await db.accounts.update_one(
+        {"gsid": gsid},
+        {
+            "$setOnInsert": {
+                "gsid": gsid,
+                "discord_id": None,
+                "created_at": datetime.now(timezone.utc),
+            }
+        },
+        upsert=True,
+    )
+
+
+def _vote_delta(old_value: int, new_value: int) -> tuple[int, int]:
+    """Counter deltas (d_ups, d_downs) for a vote transition (spec §2).
+
+    Values are 0 (none), 1 (up), -1 (down). Covers every case in the spec's
+    table, including no-ops (old == new) and switches, by removing the old
+    contribution and adding the new one."""
+    d_ups = d_downs = 0
+    if old_value == 1:
+        d_ups -= 1
+    elif old_value == -1:
+        d_downs -= 1
+    if new_value == 1:
+        d_ups += 1
+    elif new_value == -1:
+        d_downs += 1
+    return d_ups, d_downs
+
+
+async def _apply_vote(pack_id: str, gsid: str, new_value: int) -> tuple[int, int]:
+    """Apply a vote and keep the pack's denormalized counters in sync, atomically.
+
+    The ratings-store change and the pack counter/wilson update run in a single
+    multi-document transaction (Atlas replica set), so concurrent voters never lose
+    a write and counters can't drift (spec §2, §6). Returns the pack's (ups, downs)
+    after the write. Counter updates are incremental ($inc by the delta), never a
+    recount."""
+    now = datetime.now(timezone.utc)
+    async with await client.start_session() as session:
+        async with session.start_transaction():
+            pack = await db.packs.find_one(
+                {"pack_id": pack_id},
+                {"_id": 0, "ups": 1, "downs": 1},
+                session=session,
+            )
+            cur_ups = (pack or {}).get("ups", 0) or 0
+            cur_downs = (pack or {}).get("downs", 0) or 0
+
+            existing = await db.ratings.find_one(
+                {"pack_id": pack_id, "gsid": gsid},
+                {"_id": 0, "value": 1},
+                session=session,
+            )
+            old_value = existing["value"] if existing else 0
+
+            # Source of truth first: upsert the rating, or delete it on retract.
+            if new_value == 0:
+                if existing is not None:
+                    await db.ratings.delete_one(
+                        {"pack_id": pack_id, "gsid": gsid}, session=session
+                    )
+            else:
+                await db.ratings.update_one(
+                    {"pack_id": pack_id, "gsid": gsid},
+                    {"$set": {"value": new_value, "updated_at": now}},
+                    upsert=True,
+                    session=session,
+                )
+
+            d_ups, d_downs = _vote_delta(old_value, new_value)
+            new_ups = cur_ups + d_ups
+            new_downs = cur_downs + d_downs
+            new_wilson = wilson_lower_bound(new_ups, new_downs)
+
+            # $inc by the delta (0 deltas still backfill missing fields on legacy
+            # pack docs) and recompute wilson from the new counts, same transaction.
+            await db.packs.update_one(
+                {"pack_id": pack_id},
+                {
+                    "$inc": {"ups": d_ups, "downs": d_downs},
+                    "$set": {"wilson": new_wilson},
+                },
+                session=session,
+            )
+
+    return new_ups, new_downs
 
 
 @router.post("/", dependencies=[Depends(require_api_key)])
@@ -91,13 +199,8 @@ async def create_pack(
     description: str = Form(""),
     thumbnail: Optional[UploadFile] = File(None),
 ):
-    """Create a pack from a name, author Discord ID, list of level codes, an
-    optional description, and an optional thumbnail image.
-
-    The pack's levels are FINAL: once created they can never be changed. Editing a
-    pack afterward (PUT) only updates presentation fields (name, description,
-    thumbnail). This is intentional — a pack is a fixed course, so leaderboard times
-    submitted against it stay valid for the life of the pack.
+    """Create a pack (version 1) from a name, author Discord ID, list of level
+    codes, an optional description, and an optional thumbnail image.
 
     Sent as multipart/form-data: `name`, `author`, repeated `levels` fields, plus
     optional `description` and `thumbnail`.
@@ -129,18 +232,29 @@ async def create_pack(
     pack_doc = {
         "pack_id": pack_id,
         "author": author,
-        "name": name,
-        "description": description,
-        "thumbnail": thumbnail_doc,
-        "levels": levels,
+        "latest_version": 1,
         "deleted": False,
+        # Denormalized rating aggregates kept in sync on every vote (spec §1.2).
+        "ups": 0,
+        "downs": 0,
+        "wilson": 0.0,
+        # Reserved for a future featured-setter; no endpoint sets it yet (spec §8).
+        "featured": False,
         "created_at": now,
         "updated_at": now,
+        "versions": [
+            {
+                "version": 1,
+                "name": name,
+                "description": description,
+                "thumbnail": thumbnail_doc,
+                "levels": levels,
+                "created_at": now,
+            }
+        ],
     }
 
     await db.packs.insert_one(pack_doc)
-    # `version` is vestigial in the response for client compatibility; packs no
-    # longer carry versions.
     return {"packId": pack_id, "version": 1, "levelCount": len(levels)}
 
 
@@ -150,19 +264,21 @@ async def update_pack(
     request: Request,
     pack_id: str,
     author: int = Form(..., description="discord_id of the user making the update"),
+    levels: List[str] = Form(...),
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     thumbnail: Optional[UploadFile] = File(None),
 ):
-    """Update a pack's presentation fields. The pack's LEVELS ARE FINAL and cannot
-    be changed here — there is deliberately no `levels` parameter. Only `name`,
-    `description`, and `thumbnail` may be edited; any field omitted is left as-is.
+    """Update a pack by appending a new version with the supplied level codes.
 
-    The submitter (`author`) must be the original author of the pack. A supplied
+    The submitter (`author`) must be the original author of the pack. The new
+    version's `levels` is a full replacement, not a merge, and is held to the same
+    `MIN_PACK_LEVELS` floor as creation. `name`, `description`, and `thumbnail` are
+    optional: if omitted they carry over from the current latest version. A supplied
     `thumbnail` runs through the same validate/downscale/PNG pipeline as creation.
 
-    Sent as multipart/form-data: `author`, plus any of optional `name`,
-    `description`, and `thumbnail`."""
+    Sent as multipart/form-data: `author`, repeated `levels` fields, plus optional
+    `name`, `description`, and `thumbnail`."""
     pack = await db.packs.find_one({"pack_id": pack_id, "deleted": {"$ne": True}})
     if not pack:
         raise HTTPException(404, "Pack not found")
@@ -170,24 +286,49 @@ async def update_pack(
     if pack["author"] != author:
         raise HTTPException(403, "You are not the author of this pack")
 
+    levels = [code.strip() for code in levels if code.strip()]
+    if len(levels) < MIN_PACK_LEVELS:
+        raise HTTPException(400, f"A pack must contain at least {MIN_PACK_LEVELS} levels")
+
+    # Current latest version supplies any fields the caller didn't override.
+    current = next(
+        (v for v in pack["versions"] if v["version"] == pack["latest_version"]),
+        {},
+    )
+
     now = datetime.now(timezone.utc)
-    set_fields = {"updated_at": now}
+    new_version_number = pack["latest_version"] + 1
+
+    # Use the newly uploaded thumbnail (validated + normalized) if present,
+    # otherwise carry the previous version's thumbnail forward unchanged.
+    if thumbnail is not None:
+        thumbnail_doc = await _process_thumbnail(thumbnail)
+    else:
+        thumbnail_doc = current.get("thumbnail")
 
     if name is not None:
         name = name.strip()
         if not name:
             raise HTTPException(400, "Pack name must not be empty")
-        set_fields["name"] = name
 
-    if description is not None:
-        set_fields["description"] = description
+    new_version = {
+        "version": new_version_number,
+        "name": name if name is not None else current.get("name", ""),
+        "description": description if description is not None else current.get("description", ""),
+        "thumbnail": thumbnail_doc,
+        "levels": levels,
+        "created_at": now,
+    }
 
-    if thumbnail is not None:
-        set_fields["thumbnail"] = await _process_thumbnail(thumbnail)
+    await db.packs.update_one(
+        {"pack_id": pack_id},
+        {
+            "$push": {"versions": new_version},
+            "$set": {"latest_version": new_version_number, "updated_at": now},
+        },
+    )
 
-    await db.packs.update_one({"pack_id": pack_id}, {"$set": set_fields})
-
-    return {"packId": pack_id, "updated": True, "version": 1}
+    return {"packId": pack_id, "version": new_version_number, "levelCount": len(levels)}
 
 
 @router.delete("/{pack_id}", dependencies=[Depends(require_api_key)])
@@ -218,109 +359,289 @@ async def delete_pack(
     return {"packId": pack_id, "deleted": True}
 
 
+@router.post("/{pack_id}/vote")
+@limiter.limit("60/minute")
+async def vote_pack(request: Request, pack_id: str, body: VoteRequest):
+    """Set, change, or retract the caller's vote on a pack (spec §4.1).
+
+    Body: `{ "gsid": string, "value": 1 | -1 | 0 }` — 1/-1 upsert the rating,
+    0 retracts (deletes) it. The account is auto-created for an unseen gsid. The
+    rating write and the pack's ups/downs/wilson update happen in one transaction,
+    so it's safe under concurrent voters. Idempotent in effect: re-sending the same
+    value yields the same final state.
+
+    No API key required — this is a player action keyed on gsid (like time
+    submission), not an admin operation. Response: `{ ups, downs, myVote }`, where
+    `myVote` is the caller's vote *after* this write."""
+    gsid = (body.gsid or "").strip()
+    if not gsid:
+        raise HTTPException(400, "gsid is required")
+    if body.value not in VALID_VOTE_VALUES:
+        raise HTTPException(400, "value must be 1, -1, or 0")
+
+    pack = await db.packs.find_one(
+        {"pack_id": pack_id, "deleted": {"$ne": True}}, {"_id": 1}
+    )
+    if not pack:
+        raise HTTPException(404, "Pack not found")
+
+    await ensure_account(gsid)
+    new_ups, new_downs = await _apply_vote(pack_id, gsid, body.value)
+
+    return {"ups": new_ups, "downs": new_downs, "myVote": body.value}
+
+
 @router.get("/")
 @limiter.limit("60/minute")
-async def list_packs(request: Request):
-    pipeline = [
-        # Exclude soft-deleted packs
-        {"$match": {"deleted": {"$ne": True}}},
+async def list_packs(
+    request: Request,
+    filter: str = Query(DEFAULT_FILTER, description="featured | toprated | newest | mylevels"),
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    gsid: Optional[str] = Query(None, description="caller's gsid; required for mylevels, enriches myVote"),
+):
+    """Paged pack summaries enriched with rating data (spec §4.2).
+
+    Each summary carries the existing fields plus `ups`, `downs`, `myVote`,
+    `featured`, and `createdAt`. Counters are read straight off the denormalized
+    pack fields (no aggregation over ratings), and `myVote` is a single keyed
+    lookup over (pack_id, gsid) for the page — never a scan. Returns the envelope
+    `{ packs, page, pageSize, total, hasMore }`."""
+    if filter not in VALID_FILTERS:
+        raise HTTPException(400, f"filter must be one of {VALID_FILTERS}")
+
+    gsid = gsid.strip() if gsid else None
+    if gsid:
+        # First gsid-bearing list call also auto-registers the account (spec §1.3).
+        await ensure_account(gsid)
+
+    base_match = {"deleted": {"$ne": True}}
+
+    if filter == "mylevels":
+        if not gsid:
+            raise HTTPException(400, "gsid is required for the mylevels filter")
+        # A pack's author is a discord_id today, so resolve the caller's gsid to
+        # their paired discord_id and match on that. When pack authorship moves to
+        # gsid, this becomes `base_match["author"] = gsid` and the lookup drops out.
+        account = await db.accounts.find_one({"gsid": gsid}, {"_id": 0, "discord_id": 1})
+        author_id = account.get("discord_id") if account else None
+        if author_id is None:
+            # Not paired yet -> no authored packs to show.
+            return {"packs": [], "page": page, "pageSize": pageSize, "total": 0, "hasMore": False}
+        base_match["author"] = author_id
+
+    # Normalize denormalized fields so legacy packs (created before ratings) still
+    # sort correctly with sensible defaults.
+    normalize = {
+        "$addFields": {
+            "_ups": {"$ifNull": ["$ups", 0]},
+            "_downs": {"$ifNull": ["$downs", 0]},
+            "_wilson": {"$ifNull": ["$wilson", 0]},
+            "_featured": {"$ifNull": ["$featured", False]},
+        }
+    }
+
+    if filter == "toprated":
+        # Voted packs (n >= 1) by wilson desc; zero-vote packs last by created_at
+        # desc. `_hasVotes` sorts the two groups apart (spec §3).
+        normalize["$addFields"]["_hasVotes"] = {"$gt": [{"$add": ["$_ups", "$_downs"]}, 0]}
+        sort_spec = {"_hasVotes": -1, "_wilson": -1, "created_at": -1}
+    elif filter == "featured":
+        sort_spec = {"_featured": -1, "created_at": -1}
+    else:  # newest, mylevels
+        sort_spec = {"created_at": -1}
+
+    page_pipeline = [
+        {"$skip": (page - 1) * pageSize},
+        {"$limit": pageSize},
+        # Pull out the version object that matches latest_version.
+        {
+            "$addFields": {
+                "_latest": {
+                    "$arrayElemAt": [
+                        {
+                            "$filter": {
+                                "input": "$versions",
+                                "as": "v",
+                                "cond": {"$eq": ["$$v.version", "$latest_version"]},
+                            }
+                        },
+                        0,
+                    ]
+                }
+            }
+        },
         {
             "$lookup": {
                 "from": "users",
                 "localField": "author",
                 "foreignField": "discord_id",
-                "as": "_author"
+                "as": "_author",
             }
         },
         {
             "$project": {
                 "_id": 0,
                 "packId": "$pack_id",
-                # Vestigial; kept for client compatibility.
-                "latestVersion": {"$literal": 1},
-                "name": "$name",
+                "latestVersion": "$latest_version",
+                "name": "$_latest.name",
                 "authorId": "$author",
                 "author": {"$arrayElemAt": ["$_author.username", 0]},
                 "thumbnailUrl": {
                     "$cond": [
-                        {"$ifNull": ["$thumbnail", False]},
+                        {"$ifNull": ["$_latest.thumbnail", False]},
                         {"$concat": ["/packs/", "$pack_id", "/thumbnail"]},
-                        None
+                        None,
                     ]
                 },
-                "levelCount": {"$size": {"$ifNull": ["$levels", []]}}
+                "levelCount": {"$size": {"$ifNull": ["$_latest.levels", []]}},
+                "ups": "$_ups",
+                "downs": "$_downs",
+                "featured": "$_featured",
+                "createdAt": "$created_at",
             }
-        }
+        },
     ]
-    packs = await db.packs.aggregate(pipeline).to_list(length=None)
-    return {"packs": packs}
+
+    pipeline = [
+        {"$match": base_match},
+        normalize,
+        {"$sort": sort_spec},
+        # One pass yields both the page and the unpaged total.
+        {"$facet": {"data": page_pipeline, "meta": [{"$count": "total"}]}},
+    ]
+
+    result = await db.packs.aggregate(pipeline).to_list(length=1)
+    facet = result[0] if result else {"data": [], "meta": []}
+    data = facet.get("data", [])
+    total = facet["meta"][0]["total"] if facet.get("meta") else 0
+
+    # myVote: a single keyed query over (pack_id, gsid) for just this page's packs.
+    if gsid and data:
+        pack_ids = [p["packId"] for p in data]
+        cursor = db.ratings.find(
+            {"gsid": gsid, "pack_id": {"$in": pack_ids}},
+            {"_id": 0, "pack_id": 1, "value": 1},
+        )
+        votes = {r["pack_id"]: r["value"] async for r in cursor}
+        for p in data:
+            p["myVote"] = votes.get(p["packId"], 0)
+    else:
+        for p in data:
+            p["myVote"] = 0
+
+    return {
+        "packs": data,
+        "page": page,
+        "pageSize": pageSize,
+        "total": total,
+        "hasMore": page * pageSize < total,
+    }
 
 
 @router.get("/{pack_id}")
 @limiter.limit("120/minute")
-async def get_pack(request: Request, pack_id: str):
+async def get_pack(
+    request: Request,
+    pack_id: str,
+    version: Optional[int] = Query(None, description="Specific version (omit for latest)"),
+    gsid: Optional[str] = Query(None, description="caller's gsid; includes ups/downs/myVote when supplied"),
+):
+    """Single pack's current state. When `gsid` is supplied, the response also
+    includes `ups`, `downs`, and the caller's `myVote` (spec §4.3). The common
+    path gets vote state from the list summary, so this per-open fetch is a
+    fallback."""
     pack = await db.packs.find_one({"pack_id": pack_id, "deleted": {"$ne": True}})
     if not pack:
         raise HTTPException(404, "Pack not found")
+
+    target = version if version is not None else pack["latest_version"]
+    version_data = next(
+        (v for v in pack["versions"] if v["version"] == target),
+        None
+    )
+    if version_data is None:
+        raise HTTPException(404, f"Version {target} not found for pack {pack_id}")
 
     author = await db.users.find_one({"discord_id": pack["author"]})
     author_name = author["username"] if author else "Unknown User"
 
     thumbnail_url = None
-    if pack.get("thumbnail"):
-        thumbnail_url = f"/packs/{pack['pack_id']}/thumbnail"
+    if version_data.get("thumbnail"):
+        thumbnail_url = f"/packs/{pack['pack_id']}/thumbnail?version={version_data['version']}"
 
-    return {
+    response = {
         "packId": pack["pack_id"],
-        # Vestigial; kept for client compatibility.
-        "version": 1,
-        "name": pack["name"],
+        "version": version_data["version"],
+        "name": version_data["name"],
         "authorId": pack["author"],
         "author": author_name,
-        "description": pack.get("description", ""),
+        "description": version_data.get("description", ""),
         "thumbnailUrl": thumbnail_url,
-        "levels": pack.get("levels", []),
-        "createdAt": pack["created_at"],
+        "levels": version_data.get("levels", []),
+        "createdAt": version_data["created_at"],
         "updatedAt": pack["updated_at"],
+        "featured": bool(pack.get("featured", False)),
     }
+
+    gsid = gsid.strip() if gsid else None
+    if gsid:
+        await ensure_account(gsid)
+        rating = await db.ratings.find_one(
+            {"pack_id": pack_id, "gsid": gsid}, {"_id": 0, "value": 1}
+        )
+        response["ups"] = pack.get("ups", 0) or 0
+        response["downs"] = pack.get("downs", 0) or 0
+        response["myVote"] = rating["value"] if rating else 0
+
+    return response
 
 
 @router.get("/{pack_id}/versions")
 @limiter.limit("120/minute")
 async def get_pack_versions(request: Request, pack_id: str):
-    """DEPRECATED compatibility shim. Packs no longer have versions; this always
-    reports a single version so older clients don't break. Safe to delete once the
-    client stops calling it."""
     pack = await db.packs.find_one(
         {"pack_id": pack_id, "deleted": {"$ne": True}},
-        {"_id": 0, "pack_id": 1, "levels": 1, "created_at": 1},
+        {"_id": 0, "pack_id": 1, "versions": 1}
     )
     if not pack:
         raise HTTPException(404, "Pack not found")
 
-    return {
-        "packId": pack["pack_id"],
-        "versions": [
-            {
-                "version": 1,
-                "createdAt": pack["created_at"],
-                "levelCount": len(pack.get("levels", [])),
-            }
-        ],
-    }
+    versions = [
+        {
+            "version": v["version"],
+            "createdAt": v["created_at"],
+            "levelCount": len(v.get("levels", [])),
+        }
+        for v in sorted(pack["versions"], key=lambda v: v["version"])
+    ]
+
+    return {"packId": pack["pack_id"], "versions": versions}
 
 
 @router.get("/{pack_id}/thumbnail")
 @limiter.limit("120/minute")
-async def get_pack_thumbnail(request: Request, pack_id: str):
+async def get_pack_thumbnail(
+    request: Request,
+    pack_id: str,
+    version: Optional[int] = Query(None, description="Specific version (omit for latest)")
+):
     pack = await db.packs.find_one(
         {"pack_id": pack_id, "deleted": {"$ne": True}},
-        {"_id": 0, "thumbnail": 1},
+        {"_id": 0, "latest_version": 1, "versions": 1},
     )
     if not pack:
         raise HTTPException(404, "Pack not found")
 
-    thumb = pack.get("thumbnail")
+    target = version if version is not None else pack["latest_version"]
+    version_data = next(
+        (v for v in pack["versions"] if v["version"] == target),
+        None
+    )
+    if version_data is None:
+        raise HTTPException(404, f"Version {target} not found for pack {pack_id}")
+
+    thumb = version_data.get("thumbnail")
     if not thumb:
         raise HTTPException(404, "Thumbnail not found")
 
@@ -329,47 +650,3 @@ async def get_pack_thumbnail(request: Request, pack_id: str):
         media_type=thumb.get("content_type", "image/png"),
         headers={"X-Content-Type-Options": "nosniff"},
     )
-
-
-@router.get("/by-author/{discord_id}", dependencies=[Depends(require_api_key)])
-@limiter.limit("60/minute")
-async def list_packs_by_author(request: Request, discord_id: int):
-    """All of a user's packs — published AND work-in-progress drafts — in one
-    list, each tagged with a `status` of "published" or "draft".
-
-    Because this returns private drafts, it requires the API key (unlike the
-    public `GET /packs/` listing). Results are sorted most-recently-updated first.
-    Draft thumbnails are served from `/packs/drafts/{id}/thumbnail`; published ones
-    from `/packs/{id}/thumbnail`."""
-    published = await db.packs.find(
-        {"author": discord_id, "deleted": {"$ne": True}}
-    ).to_list(length=None)
-    drafts = await db.pack_drafts.find({"author": discord_id}).to_list(length=None)
-
-    user = await db.users.find_one({"discord_id": discord_id})
-    author_name = user["username"] if user else "Unknown User"
-
-    items = []
-    for p in published:
-        items.append({
-            "packId": p["pack_id"],
-            "status": "published",
-            "name": p.get("name", ""),
-            "levelCount": len(p.get("levels", [])),
-            "thumbnailUrl": f"/packs/{p['pack_id']}/thumbnail" if p.get("thumbnail") else None,
-            "createdAt": p.get("created_at"),
-            "updatedAt": p.get("updated_at"),
-        })
-    for d in drafts:
-        items.append({
-            "packId": d["pack_id"],
-            "status": "draft",
-            "name": d.get("name", ""),
-            "levelCount": len(d.get("levels", [])),
-            "thumbnailUrl": f"/packs/drafts/{d['pack_id']}/thumbnail" if d.get("thumbnail") else None,
-            "createdAt": d.get("created_at"),
-            "updatedAt": d.get("updated_at"),
-        })
-
-    items.sort(key=lambda x: x.get("updatedAt") or x.get("createdAt"), reverse=True)
-    return {"authorId": discord_id, "author": author_name, "packs": items}
