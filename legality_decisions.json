@@ -1,0 +1,44 @@
+{
+  "V9N7-GKTW": {
+    "code": "V9N7-GKTW",
+    "name": "Unravel",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-06-02T14:06:28.688075+00:00"
+  },
+  "1CRY-MU6S": {
+    "code": "1CRY-MU6S",
+    "name": "Ermich",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-06-02T14:15:45.845218+00:00"
+  },
+  "64Y0-Z70A": {
+    "code": "64Y0-Z70A",
+    "name": "Construct (splitless)",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-06-02T14:15:54.220803+00:00"
+  },
+  "0AVC-52X4": {
+    "code": "0AVC-52X4",
+    "name": "Astropolis",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-06-02T14:16:12.171366+00:00"
+  },
+  "4AT6-J611": {
+    "code": "4AT6-J611",
+    "name": "Sternchen [Redo]",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-06-02T14:18:22.803812+00:00"
+  },
+  "FFG0-H6U4": {
+    "code": "FFG0-H6U4",
+    "name": "Bords of Paradise",
+    "decision": "legal",
+    "confidence": 3,
+    "updated_at": "2026-06-02T14:18:49.383693+00:00"
+  }
+}

@@ -89,6 +89,16 @@ async def _generate_unique_pack_id() -> str:
         if existing is None:
             return pack_id
 
+async def _author_ids_for_gsid(gsid: str) -> list:
+    """Every id a player may have authored under: their gsid (game uploads)
+    and their paired discord_id from the account record (website uploads)."""
+    ids: list = [gsid]
+    account = await db.accounts.find_one({"gsid": gsid}, {"_id": 0, "discord_id": 1})
+    discord_id = account.get("discord_id") if account else None
+    if discord_id is not None:
+        ids.append(discord_id)
+    return ids
+
 
 # --------------------------------------------------------------------------- #
 # Author display-name resolution (gsid OR discord_id)
@@ -418,17 +428,12 @@ async def list_packs(
     base_match = {"deleted": {"$ne": True}}
 
     if filter == "mylevels":
-        if not gsid:
-            raise HTTPException(400, "gsid is required for the mylevels filter")
-        # gsid is itself a valid authorship identity now: game-created packs are
-        # authored by the gsid directly, so match on it without requiring Discord
-        # pairing. If the player ALSO has a paired discord_id, include packs
-        # authored under that identity too (bot-created packs they own).
-        authors: list = [gsid]
-        account = await db.accounts.find_one({"gsid": gsid}, {"_id": 0, "discord_id": 1})
-        if account and account.get("discord_id") is not None:
-            authors.append(account["discord_id"])
-        base_match["author"] = {"$in": authors}
+            if not gsid:
+                raise HTTPException(400, "gsid is required for the mylevels filter")
+            # Match every id the player may have authored under: their gsid (game
+            # uploads, string author) and their paired discord_id (website uploads,
+            # int author). Each pack has one author, so this returns each once.
+            base_match["author"] = {"$in": await _author_ids_for_gsid(gsid)}
 
     # Normalize denormalized fields so legacy packs (created before ratings) still
     # sort correctly with sensible defaults.
