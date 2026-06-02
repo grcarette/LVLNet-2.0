@@ -14,3 +14,6 @@ class LevelCreateRequest(BaseModel):
     mode: str
     creators: List[int]   # discord IDs
     hidden: bool = False
+
+class LegalityUpdateRequest(BaseModel):
+    tournament_legal: bool

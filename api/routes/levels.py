@@ -16,6 +16,7 @@ from ..imgur import get_imgur_data
 from ..level_projection import creator_lookup_stages
 from api.models.level import LevelCreateRequest
 from api.utils import limiter, require_api_key
+from api.models.level import LevelCreateRequest, LegalityUpdateRequest
 # ensure_account / _process_thumbnail live in the packs router. Importing them
 # here is safe (packs does not import levels, so there is no cycle) and reuses
 # the exact same account-seeding and thumbnail validate/downscale/PNG pipeline.
@@ -83,6 +84,29 @@ async def get_level(request: Request, code: str):
     if not results:
         raise HTTPException(404, "Level not found")
     return results[0]
+
+@router.patch("/{code}/legality", dependencies=[Depends(require_api_key)])
+@limiter.limit("30/minute")
+async def set_level_legality(
+    request: Request, code: str, body: LegalityUpdateRequest
+):
+    """Set the tournament legality of a single level.
+
+    Legality is a party-mode concept (the bot's set_tourney_legality only ever
+    touches party levels), so a non-party level is rejected rather than silently
+    no-op'd. Idempotent: setting the value it already has is a 200, not an error.
+    Requires the API key — this is a privileged write like create/update."""
+    level = await db.levels.find_one({"code": code}, {"_id": 0, "mode": 1})
+    if not level:
+        raise HTTPException(404, "Level not found")
+    if level.get("mode") != "party":
+        raise HTTPException(400, "Only party levels have tournament legality")
+
+    await db.levels.update_one(
+        {"code": code},
+        {"$set": {"tournament_legal": body.tournament_legal}},
+    )
+    return {"code": code, "tournament_legal": body.tournament_legal}
 
 
 @router.get("/{code}/thumbnail")
