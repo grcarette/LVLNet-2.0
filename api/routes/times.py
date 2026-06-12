@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Query
 
 from ..db import db
 from api.utils import limiter
+from .packs import update_display_name
 from api.models.time import (
     TimeSubmission,
     normalize_mode,
@@ -219,6 +220,9 @@ async def submit_time(request: Request, pack_id: str, submission: TimeSubmission
             }
         },
     )
+    # Refresh accounts.display_name so packs authored by this gsid resolve
+    # the correct name without requiring a dedicated pack write.
+    await update_display_name(gsid, submission.display_name or "")
 
     # --- Resolve current rank on the (updated) board. 0 = not ranked. ---
     rank = 0

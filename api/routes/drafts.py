@@ -17,7 +17,7 @@ from pymongo import ReturnDocument
 from ..db import db
 from ..auth import require_session, enforce_gsid
 from api.utils import limiter
-from .packs import _process_thumbnail, _generate_unique_pack_id, MIN_PACK_LEVELS
+from .packs import _process_thumbnail, _generate_unique_pack_id, MIN_PACK_LEVELS, _resolve_author_name, update_display_name
 
 # Work-in-progress packs. These live in their OWN collection (`pack_drafts`),
 # never in `packs`. That is deliberate: a published pack is immutable (its levels
@@ -73,6 +73,7 @@ async def create_draft(
     description: str = Form(""),
     levels: Optional[List[str]] = Form(None),
     thumbnail: Optional[UploadFile] = File(None),
+    displayName: str = Form(""),
 ):
     """Start a work-in-progress pack owned by the authenticated gsid. Everything
     is optional — a draft may begin with no name and no levels. The publish rules
@@ -82,6 +83,7 @@ async def create_draft(
     `pack_drafts`, so the ID (and any URL built from it) survives publishing
     unchanged. Sent as multipart/form-data."""
     author = enforce_gsid(token_gsid, gsid)
+    await update_display_name(author, displayName)
 
     name = name.strip()
     codes = [c.strip() for c in (levels or []) if c.strip()]
@@ -96,6 +98,7 @@ async def create_draft(
     draft_doc = {
         "pack_id": pack_id,
         "author": author,
+        "author_display_name": displayName.strip() or None,
         "name": name,
         "description": description,
         "thumbnail": thumbnail_doc,
@@ -142,11 +145,14 @@ async def get_draft(
     if draft.get("thumbnail"):
         thumbnail_url = f"/packs/drafts/{pack_id}/thumbnail"
 
+    author_name = await _resolve_author_name(draft["author"], draft.get("author_display_name"))
+
     return {
         "packId": draft["pack_id"],
         "status": "draft",
         "name": draft.get("name", ""),
         "authorId": str(draft["author"]),
+        "author": author_name,
         "description": draft.get("description", ""),
         "thumbnailUrl": thumbnail_url,
         "levels": draft.get("levels", []),
@@ -322,6 +328,7 @@ async def publish_draft(
     pack_doc = {
         "pack_id": claimed["pack_id"],
         "author": claimed["author"],
+        "author_display_name": claimed.get("author_display_name"),
         "name": name,
         "description": claimed.get("description", ""),
         "thumbnail": claimed.get("thumbnail"),

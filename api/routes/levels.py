@@ -20,7 +20,7 @@ from api.models.level import LevelCreateRequest, LegalityUpdateRequest
 # ensure_account / _process_thumbnail live in the packs router. Importing them
 # here is safe (packs does not import levels, so there is no cycle) and reuses
 # the exact same account-seeding and thumbnail validate/downscale/PNG pipeline.
-from .packs import ensure_account, _process_thumbnail
+from .packs import ensure_account, _process_thumbnail, update_display_name
 
 router = APIRouter(prefix="/levels", tags=["levels"])
 
@@ -306,7 +306,8 @@ async def create_level_from_game(
         thumbnail_doc = await _process_thumbnail(thumbnail)
 
     # Auto-register the account on first contact; refresh the display name.
-    await ensure_account(gsid, display_name or None)
+    await ensure_account(gsid)
+    await update_display_name(gsid, display_name)
 
     existing = await db.levels.find_one({"code": code})
     if existing is not None:

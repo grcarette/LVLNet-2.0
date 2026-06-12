@@ -116,6 +116,39 @@ async def ensure_account(gsid: str) -> None:
         upsert=True,
     )
 
+def _looks_like_gsid(author) -> bool:
+    """gsid authors are non-numeric strings; legacy Discord authors are
+    ints (or all-digit strings)."""
+    return isinstance(author, str) and not author.isdigit()
+
+
+async def update_display_name(gsid: str, display_name: str) -> None:
+    """Remember the player's latest display name on their account record.
+    Called on every authored write that carries a displayName field."""
+    name = (display_name or "").strip()
+    if not name:
+        return
+    await ensure_account(gsid)
+    await db.accounts.update_one({"gsid": gsid}, {"$set": {"display_name": name}})
+
+
+async def _resolve_author_name(author, stored_name: str | None = None) -> str:
+    """Author -> human name. Order: name stored on the record itself, then
+    the account's last-known display name (gsid authors), then the Discord
+    users lookup (legacy int authors), then 'Unknown User'."""
+    if stored_name:
+        return stored_name
+    if _looks_like_gsid(author):
+        acct = await db.accounts.find_one({"gsid": author}, {"_id": 0, "display_name": 1})
+        if acct and acct.get("display_name"):
+            return acct["display_name"]
+        return "Unknown User"
+    try:
+        discord_id = int(author)
+    except (TypeError, ValueError):
+        return "Unknown User"
+    user = await db.users.find_one({"discord_id": discord_id})
+    return user["username"] if user else "Unknown User"
 
 def _vote_delta(old_value: int, new_value: int) -> tuple[int, int]:
     """Counter deltas (d_ups, d_downs) for a vote transition (spec §2)."""
@@ -343,6 +376,7 @@ async def unpublish_pack(
     draft_doc = {
         "pack_id": pack["pack_id"],          # MUST NOT change
         "author": pack["author"],
+        "author_display_name": pack.get("author_display_name"),
         "name": pack.get("name", ""),
         "description": pack.get("description", ""),
         "thumbnail": pack.get("thumbnail"),
@@ -455,13 +489,33 @@ async def list_packs(
             }
         },
         {
+            "$lookup": {
+                "from": "accounts",
+                "localField": "author",
+                "foreignField": "gsid",
+                "as": "_acct",
+            }
+        },
+        {
             "$project": {
                 "_id": 0,
                 "packId": "$pack_id",
                 "name": "$name",
                 # Always a string on the wire (gsid, or stringified legacy id).
                 "authorId": {"$toString": "$author"},
-                "author": {"$arrayElemAt": ["$_author.username", 0]},
+                # Resolution order: snapshot on the record itself → last-known
+                # account display name (gsid authors) → Discord username (legacy)
+                "author": {
+                    "$ifNull": [
+                        "$author_display_name",
+                        {
+                            "$ifNull": [
+                                {"$arrayElemAt": ["$_acct.display_name", 0]},
+                                {"$arrayElemAt": ["$_author.username", 0]},
+                            ]
+                        },
+                    ]
+                },
                 "thumbnailUrl": {
                     "$cond": [
                         {"$ifNull": ["$thumbnail", False]},
@@ -528,8 +582,7 @@ async def get_pack(
     if not pack:
         raise HTTPException(404, "Pack not found")
 
-    author = await db.users.find_one({"discord_id": pack["author"]})
-    author_name = author["username"] if author else "Unknown User"
+    author_name = await _resolve_author_name(pack["author"], pack.get("author_display_name"))
 
     thumbnail_url = None
     if pack.get("thumbnail"):
