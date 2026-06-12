@@ -54,8 +54,10 @@ async def lifespan(app: FastAPI):
         await db.sessions.create_index(
             [("expires_at", 1)], name="session_ttl", expireAfterSeconds=0
         )
-        await db.steam_bindings.create_index(
-            [("steamid", 1)], name="binding_steamid", unique=True
+        # One credential record per gsid; the unique index also makes the
+        # trust-on-first-use registration race-safe (insert wins exactly once).
+        await db.client_secrets.create_index(
+            [("gsid", 1)], name="client_secret_gsid", unique=True
         )
 
         # --- Drafts: author listing path ---
