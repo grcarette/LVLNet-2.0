@@ -25,6 +25,16 @@ MIN_RANKED_SECONDS = 0.0
 MAX_RANKED_SECONDS = 24 * 60 * 60  # 24h of gameplay time — generous, adjustable.
 
 
+async def _pack_is_published(pack_id: str) -> bool:
+    """True iff the pack currently exists in `packs` and is not soft-deleted.
+    An unpublished pack has been moved to `pack_drafts`, so it (correctly)
+    reads as not published here — its times are retained but hidden."""
+    pack = await db.packs.find_one(
+        {"pack_id": pack_id, "deleted": {"$ne": True}}, {"_id": 1}
+    )
+    return pack is not None
+
+
 def _best_per_player_pipeline(
     pack_id: str, mode: str, deathless_only: bool = False
 ) -> list:
@@ -231,10 +241,17 @@ async def get_leaderboard(
     """Leaderboard for one pack, ascending by totalSeconds, capped at `limit`.
     Omitted `mode` -> Speedrun. Returns an object with an `entries` array
     (Unity JsonUtility cannot parse a bare top-level array).
-    Pass `deathless=true` to return only submissions where deaths == 0."""
+    Pass `deathless=true` to return only submissions where deaths == 0.
+
+    A pack that is unpublished (or unknown / soft-deleted) has no public board:
+    its stored times are retained but hidden, so this returns an empty `entries`
+    array. Re-publishing with an unchanged level list re-exposes them."""
     resolved_mode = normalize_mode(mode) if mode else DEFAULT_MODE
     if resolved_mode is None:
         raise HTTPException(400, f"mode must be one of {VALID_MODES}")
+
+    if not await _pack_is_published(pack_id):
+        return {"entries": []}
 
     entries = await _ranked_board(
         pack_id, resolved_mode, limit=limit, deathless_only=deathless
@@ -251,10 +268,14 @@ async def get_player_splits(
     mode: Optional[str] = Query(None),
 ):
     """Per-row detail for a future "expand a leaderboard row" UI (open question
-    #8): the player's best time on this board, with stored cumulative splits."""
+    #8): the player's best time on this board, with stored cumulative splits.
+    Hidden (404) while the pack is not currently published."""
     resolved_mode = normalize_mode(mode) if mode else DEFAULT_MODE
     if resolved_mode is None:
         raise HTTPException(400, f"mode must be one of {VALID_MODES}")
+
+    if not await _pack_is_published(pack_id):
+        raise HTTPException(404, "No time found for that player on this board")
 
     best = await db.times.find_one(
         {

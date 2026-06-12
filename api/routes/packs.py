@@ -1,4 +1,5 @@
 import io
+import logging
 import secrets
 import string
 
@@ -10,9 +11,11 @@ from PIL import Image, UnidentifiedImageError
 
 from ..db import db, client
 from ..scoring import wilson_lower_bound
-from ..level_projection import creator_lookup_stages
+from ..auth import require_session, enforce_gsid
 from api.models.rating import VoteRequest
 from api.utils import limiter, require_api_key
+
+logger = logging.getLogger("lvlnet.packs")
 
 router = APIRouter(prefix="/packs", tags=["packs"])
 
@@ -80,75 +83,42 @@ def _generate_pack_id() -> str:
 
 
 async def _generate_unique_pack_id() -> str:
-    """Generate a pack ID that isn't already taken. Collisions are astronomically
-    unlikely (26**10), but there's no unique index on pack_id, so a duplicate would
-    otherwise insert a second document silently."""
+    """Generate a pack ID that isn't taken in EITHER `packs` or `pack_drafts`.
+    The id must be unique across both collections because it survives the
+    draft -> published -> unpublished -> re-published lifecycle unchanged."""
     while True:
         pack_id = _generate_pack_id()
-        existing = await db.packs.find_one({"pack_id": pack_id}, {"_id": 1})
-        if existing is None:
+        in_packs = await db.packs.find_one({"pack_id": pack_id}, {"_id": 1})
+        in_drafts = await db.pack_drafts.find_one({"pack_id": pack_id}, {"_id": 1})
+        if in_packs is None and in_drafts is None:
             return pack_id
-
-async def _author_ids_for_gsid(gsid: str) -> list:
-    """Every id a player may have authored under: their gsid (game uploads)
-    and their paired discord_id from the account record (website uploads)."""
-    ids: list = [gsid]
-    account = await db.accounts.find_one({"gsid": gsid}, {"_id": 0, "discord_id": 1})
-    discord_id = account.get("discord_id") if account else None
-    if discord_id is not None:
-        ids.append(discord_id)
-    return ids
-
-
-# --------------------------------------------------------------------------- #
-# Author display-name resolution (gsid OR discord_id)
-# --------------------------------------------------------------------------- #
-
-async def _resolve_author_name(doc: dict) -> str:
-    """Resolve the display name for a pack/draft document whose `author` is either
-    a gsid (string, game-created) or a discord_id (int, bot-created).
-
-    gsid authors carry their display name on the record (`author_name`) so reads
-    never need a Discord lookup and never fall back to "Unknown User". discord
-    authors resolve through the `users` collection exactly as before."""
-    author = doc.get("author")
-    if isinstance(author, str):
-        # gsid-authored: never "Unknown User".
-        return doc.get("author_name") or "Player"
-    user = await db.users.find_one({"discord_id": author})
-    return user["username"] if user else "Unknown User"
 
 
 # --------------------------------------------------------------------------- #
 # Accounts / ratings helpers (spec §1.3, §2)
 # --------------------------------------------------------------------------- #
 
-async def ensure_account(gsid: str, display_name: Optional[str] = None) -> None:
-    """Auto-create the account for `gsid` on first contact (spec §1.3), and keep
-    the player's display name fresh when one is supplied.
+async def ensure_account(gsid: str) -> None:
+    """Auto-create the account for `gsid` on first contact (spec §1.3).
 
-    `$setOnInsert` seeds the immutable fields only the first time, so an existing
-    account (and any later-paired discord_id) is never disturbed. When a
-    `display_name` is passed it is `$set` on every call, so a player's current name
-    is always available for resolving gsid-authored content at read time."""
-    update: dict = {
-        "$setOnInsert": {
-            "gsid": gsid,
-            "discord_id": None,
-            "created_at": datetime.now(timezone.utc),
-        }
-    }
-    if display_name:
-        update["$set"] = {"display_name": display_name}
-    await db.accounts.update_one({"gsid": gsid}, update, upsert=True)
+    Idempotent upsert: `$setOnInsert` only writes the seed fields the first time,
+    so an existing account (and any later-paired discord_id) is never touched.
+    """
+    await db.accounts.update_one(
+        {"gsid": gsid},
+        {
+            "$setOnInsert": {
+                "gsid": gsid,
+                "discord_id": None,
+                "created_at": datetime.now(timezone.utc),
+            }
+        },
+        upsert=True,
+    )
 
 
 def _vote_delta(old_value: int, new_value: int) -> tuple[int, int]:
-    """Counter deltas (d_ups, d_downs) for a vote transition (spec §2).
-
-    Values are 0 (none), 1 (up), -1 (down). Covers every case in the spec's
-    table, including no-ops (old == new) and switches, by removing the old
-    contribution and adding the new one."""
+    """Counter deltas (d_ups, d_downs) for a vote transition (spec §2)."""
     d_ups = d_downs = 0
     if old_value == 1:
         d_ups -= 1
@@ -162,13 +132,7 @@ def _vote_delta(old_value: int, new_value: int) -> tuple[int, int]:
 
 
 async def _apply_vote(pack_id: str, gsid: str, new_value: int) -> tuple[int, int]:
-    """Apply a vote and keep the pack's denormalized counters in sync, atomically.
-
-    The ratings-store change and the pack counter/wilson update run in a single
-    multi-document transaction (Atlas replica set), so concurrent voters never lose
-    a write and counters can't drift (spec §2, §6). Returns the pack's (ups, downs)
-    after the write. Counter updates are incremental ($inc by the delta), never a
-    recount."""
+    """Apply a vote and keep the pack's denormalized counters in sync, atomically."""
     now = datetime.now(timezone.utc)
     async with await client.start_session() as session:
         async with session.start_transaction():
@@ -206,8 +170,6 @@ async def _apply_vote(pack_id: str, gsid: str, new_value: int) -> tuple[int, int
             new_downs = cur_downs + d_downs
             new_wilson = wilson_lower_bound(new_ups, new_downs)
 
-            # $inc by the delta (0 deltas still backfill missing fields on legacy
-            # pack docs) and recompute wilson from the new counts, same transaction.
             await db.packs.update_one(
                 {"pack_id": pack_id},
                 {
@@ -225,30 +187,14 @@ async def _apply_vote(pack_id: str, gsid: str, new_value: int) -> tuple[int, int
 async def create_pack(
     request: Request,
     name: str = Form(...),
-    author: int = Form(...),
+    author: str = Form(...),
     levels: List[str] = Form(...),
     description: str = Form(""),
     thumbnail: Optional[UploadFile] = File(None),
 ):
-    """Create a pack from a name, author Discord ID, list of level codes, an
-    optional description, and an optional thumbnail image.
-
-    Sent as multipart/form-data: `name`, `author`, repeated `levels` fields, plus
-    optional `description` and `thumbnail`.
-
-    The author is stored as a Discord ID; the GET endpoints resolve it to a username
-    via the `users` collection. An author that isn't registered yet is accepted and
-    will simply show as "Unknown User" until they're registered elsewhere.
-
-    Any common image format is accepted for `thumbnail`; it's validated, downscaled,
-    and converted to PNG server-side, so a non-image or oversized file returns 400.
-
-    `name` and `author` are required, and at least three (non-blank) level codes must
-    be supplied; otherwise the request is rejected with a 400.
-
-    (This is the key-protected, discord-authored creation path used by the bot /
-    admin tooling. The game client creates packs via the keyless draft->publish
-    flow instead.)"""
+    """Admin/bot path (API key): create a pack directly. `author` is the
+    author's gsid string (legacy rows may still hold Discord-id ints; reads
+    coerce with $toString)."""
     name = name.strip()
     if not name:
         raise HTTPException(400, "Pack name must not be empty")
@@ -266,7 +212,7 @@ async def create_pack(
 
     pack_doc = {
         "pack_id": pack_id,
-        "author": author,
+        "author": author.strip(),
         "name": name,
         "description": description,
         "thumbnail": thumbnail_doc,
@@ -291,27 +237,18 @@ async def create_pack(
 async def update_pack(
     request: Request,
     pack_id: str,
-    author: int = Form(..., description="discord_id of the user making the update"),
+    author: str = Form(..., description="gsid of the user making the update"),
     levels: List[str] = Form(...),
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     thumbnail: Optional[UploadFile] = File(None),
 ):
-    """Update a pack's contents in place.
-
-    The submitter (`author`) must be the original author of the pack. `levels` is a
-    full replacement, not a merge, and is held to the same `MIN_PACK_LEVELS` floor as
-    creation. `name`, `description`, and `thumbnail` are optional: if omitted they are
-    left unchanged. A supplied `thumbnail` runs through the same validate/downscale/PNG
-    pipeline as creation.
-
-    Sent as multipart/form-data: `author`, repeated `levels` fields, plus optional
-    `name`, `description`, and `thumbnail`."""
+    """Admin/bot path (API key): update a pack's contents in place."""
     pack = await db.packs.find_one({"pack_id": pack_id, "deleted": {"$ne": True}})
     if not pack:
         raise HTTPException(404, "Pack not found")
 
-    if pack["author"] != author:
+    if str(pack["author"]) != author.strip():
         raise HTTPException(403, "You are not the author of this pack")
 
     levels = [code.strip() for code in levels if code.strip()]
@@ -320,8 +257,6 @@ async def update_pack(
 
     now = datetime.now(timezone.utc)
 
-    # Only the fields the caller actually supplied are written; anything omitted
-    # is left untouched on the existing document.
     set_fields = {"levels": levels, "updated_at": now}
 
     if thumbnail is not None:
@@ -341,24 +276,25 @@ async def update_pack(
     return {"packId": pack_id, "levelCount": len(levels)}
 
 
-@router.delete("/{pack_id}", dependencies=[Depends(require_api_key)])
+@router.delete("/{pack_id}")
 @limiter.limit("30/minute")
 async def delete_pack(
     request: Request,
     pack_id: str,
-    author: int = Form(..., description="discord_id of the user requesting the delete"),
+    token_gsid: str = Depends(require_session),
+    gsid: str = Form(""),
 ):
-    """Soft-delete a pack by flagging `deleted: True`. The document is kept but
-    is excluded from every other read endpoint.
+    """Soft-delete a published pack by flagging `deleted: True`.
 
-    Requires a valid API key (header) AND that `author` matches the pack's
-    original author, so a key holder can only delete their own packs. Sent as
-    multipart/form-data with a single `author` field."""
+    Requires a bearer session token; the token's gsid must be the pack's author.
+    The optional `gsid` form field, if sent, must agree with the token."""
+    caller = enforce_gsid(token_gsid, gsid)
+
     pack = await db.packs.find_one({"pack_id": pack_id, "deleted": {"$ne": True}})
     if not pack:
         raise HTTPException(404, "Pack not found")
 
-    if pack["author"] != author:
+    if str(pack["author"]) != caller:
         raise HTTPException(403, "You are not the author of this pack")
 
     await db.packs.update_one(
@@ -369,20 +305,74 @@ async def delete_pack(
     return {"packId": pack_id, "deleted": True}
 
 
+@router.post("/{pack_id}/unpublish")
+@limiter.limit("30/minute")
+async def unpublish_pack(
+    request: Request,
+    pack_id: str,
+    token_gsid: str = Depends(require_session),
+    gsid: str = Form(""),
+):
+    """Revert a published pack to a draft (Feature 2).
+
+    Auth: bearer token required; the token's gsid must equal the pack's author
+    (`authorId`), otherwise 403. A `gsid` form field that disagrees with the
+    token is rejected with 401.
+
+    Atomically (single transaction) moves the document from `packs` into
+    `pack_drafts`, preserving the packId, name, author, description, ordered
+    level list, thumbnail, and original created_at. Rating counters and the
+    published level list are snapshotted onto the draft so re-publish can
+    restore votes and decide whether the leaderboard is still valid. Times and
+    ratings rows are RETAINED in their collections — they are hidden publicly
+    simply because the pack is no longer in `packs` (lists, detail, and the
+    times endpoint all key off that collection).
+
+    Response (checked literally by the client): {"status": "draft", "packId": ...}."""
+    caller = enforce_gsid(token_gsid, gsid)
+
+    pack = await db.packs.find_one({"pack_id": pack_id, "deleted": {"$ne": True}})
+    if not pack:
+        # Unknown, deleted, or already a draft -> 404 (spec allows 404 here).
+        raise HTTPException(404, "Pack not found or not currently published")
+
+    if str(pack["author"]) != caller:
+        raise HTTPException(403, "You are not the author of this pack")
+
+    now = datetime.now(timezone.utc)
+    draft_doc = {
+        "pack_id": pack["pack_id"],          # MUST NOT change
+        "author": pack["author"],
+        "name": pack.get("name", ""),
+        "description": pack.get("description", ""),
+        "thumbnail": pack.get("thumbnail"),
+        "levels": pack.get("levels", []),    # full ordered list
+        "created_at": pack["created_at"],    # preserved
+        "updated_at": now,
+        # Bookkeeping for re-publish (see drafts.publish_draft):
+        "published_created_at": pack["created_at"],
+        "published_levels": list(pack.get("levels", [])),
+        "published_ratings": {
+            "ups": pack.get("ups", 0) or 0,
+            "downs": pack.get("downs", 0) or 0,
+            "wilson": pack.get("wilson", 0.0) or 0.0,
+            "featured": bool(pack.get("featured", False)),
+        },
+    }
+
+    async with await client.start_session() as session:
+        async with session.start_transaction():
+            await db.pack_drafts.insert_one(draft_doc, session=session)
+            await db.packs.delete_one({"pack_id": pack_id}, session=session)
+
+    logger.info("pack %s unpublished by gsid %s", pack_id, caller)
+    return {"status": "draft", "packId": pack_id}
+
+
 @router.post("/{pack_id}/vote")
 @limiter.limit("60/minute")
 async def vote_pack(request: Request, pack_id: str, body: VoteRequest):
-    """Set, change, or retract the caller's vote on a pack (spec §4.1).
-
-    Body: `{ "gsid": string, "value": 1 | -1 | 0 }` — 1/-1 upsert the rating,
-    0 retracts (deletes) it. The account is auto-created for an unseen gsid. The
-    rating write and the pack's ups/downs/wilson update happen in one transaction,
-    so it's safe under concurrent voters. Idempotent in effect: re-sending the same
-    value yields the same final state.
-
-    No API key required — this is a player action keyed on gsid (like time
-    submission), not an admin operation. Response: `{ ups, downs, myVote }`, where
-    `myVote` is the caller's vote *after* this write."""
+    """Set, change, or retract the caller's vote on a pack (spec §4.1)."""
     gsid = (body.gsid or "").strip()
     if not gsid:
         raise HTTPException(400, "gsid is required")
@@ -410,13 +400,9 @@ async def list_packs(
     pageSize: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     gsid: Optional[str] = Query(None, description="caller's gsid; required for mylevels, enriches myVote"),
 ):
-    """Paged pack summaries enriched with rating data (spec §4.2).
-
-    Each summary carries the existing fields plus `ups`, `downs`, `myVote`,
-    `featured`, and `createdAt`. Counters are read straight off the denormalized
-    pack fields (no aggregation over ratings), and `myVote` is a single keyed
-    lookup over (pack_id, gsid) for the page — never a scan. Returns the envelope
-    `{ packs, page, pageSize, total, hasMore }`."""
+    """Paged pack summaries enriched with rating data (spec §4.2). `authorId`
+    is serialized as a string (the author's gsid; legacy rows holding a Discord
+    id are coerced with $toString so the client always sees a string)."""
     if filter not in VALID_FILTERS:
         raise HTTPException(400, f"filter must be one of {VALID_FILTERS}")
 
@@ -428,12 +414,15 @@ async def list_packs(
     base_match = {"deleted": {"$ne": True}}
 
     if filter == "mylevels":
-            if not gsid:
-                raise HTTPException(400, "gsid is required for the mylevels filter")
-            # Match every id the player may have authored under: their gsid (game
-            # uploads, string author) and their paired discord_id (website uploads,
-            # int author). Each pack has one author, so this returns each once.
-            base_match["author"] = {"$in": await _author_ids_for_gsid(gsid)}
+        if not gsid:
+            raise HTTPException(400, "gsid is required for the mylevels filter")
+        # Authors are gsid strings; legacy packs may still carry a paired
+        # Discord id, so match either.
+        author_keys: list = [gsid]
+        account = await db.accounts.find_one({"gsid": gsid}, {"_id": 0, "discord_id": 1})
+        if account and account.get("discord_id") is not None:
+            author_keys.append(account["discord_id"])
+        base_match["author"] = {"$in": author_keys}
 
     # Normalize denormalized fields so legacy packs (created before ratings) still
     # sort correctly with sensible defaults.
@@ -447,8 +436,6 @@ async def list_packs(
     }
 
     if filter == "toprated":
-        # Voted packs (n >= 1) by wilson desc; zero-vote packs last by created_at
-        # desc. `_hasVotes` sorts the two groups apart (spec §3).
         normalize["$addFields"]["_hasVotes"] = {"$gt": [{"$add": ["$_ups", "$_downs"]}, 0]}
         sort_spec = {"_hasVotes": -1, "_wilson": -1, "created_at": -1}
     elif filter == "featured":
@@ -472,16 +459,9 @@ async def list_packs(
                 "_id": 0,
                 "packId": "$pack_id",
                 "name": "$name",
-                "authorId": "$author",
-                # discord authors resolve via the users lookup; gsid authors have
-                # no user row, so fall back to the stored display name. Never
-                # surfaces "Unknown User" for a gsid author.
-                "author": {
-                    "$ifNull": [
-                        {"$arrayElemAt": ["$_author.username", 0]},
-                        "$author_name",
-                    ]
-                },
+                # Always a string on the wire (gsid, or stringified legacy id).
+                "authorId": {"$toString": "$author"},
+                "author": {"$arrayElemAt": ["$_author.username", 0]},
                 "thumbnailUrl": {
                     "$cond": [
                         {"$ifNull": ["$thumbnail", False]},
@@ -502,7 +482,6 @@ async def list_packs(
         {"$match": base_match},
         normalize,
         {"$sort": sort_spec},
-        # One pass yields both the page and the unpaged total.
         {"$facet": {"data": page_pipeline, "meta": [{"$count": "total"}]}},
     ]
 
@@ -534,43 +513,6 @@ async def list_packs(
     }
 
 
-@router.get("/{pack_id}/levels")
-@limiter.limit("120/minute")
-async def resolve_pack_levels(request: Request, pack_id: str):
-    """Resolve a published pack's level metadata BY CODE, including hidden levels.
-
-    Pack playback needs every level the pack contains, but a level uploaded as
-    "unlisted" is stored `hidden: true` and is therefore dropped by the discovery
-    endpoints (POST /levels/batch etc.). A published pack is public and already
-    *contains* these codes, so the hidden flag — which exists to keep a level out
-    of discovery/listings — must not block resolving it here. The level still does
-    not appear in any listing endpoint.
-
-    Returns the same shape as POST /levels/batch (a bare array of level read
-    objects) so it is a drop-in for the client's existing pack-level resolution,
-    in the pack's stored level order."""
-    pack = await db.packs.find_one(
-        {"pack_id": pack_id, "deleted": {"$ne": True}},
-        {"_id": 0, "levels": 1},
-    )
-    if not pack:
-        raise HTTPException(404, "Pack not found")
-
-    codes = pack.get("levels", [])
-    if not codes:
-        return []
-
-    pipeline = [
-        {"$match": {"code": {"$in": codes}}},  # intentionally NOT filtering hidden
-        *creator_lookup_stages(),
-    ]
-    resolved = await db.levels.aggregate(pipeline).to_list(length=len(codes))
-
-    # Preserve the pack's stored order (defines split order on the leaderboard).
-    by_code = {lvl["code"]: lvl for lvl in resolved}
-    return [by_code[c] for c in codes if c in by_code]
-
-
 @router.get("/{pack_id}")
 @limiter.limit("120/minute")
 async def get_pack(
@@ -578,16 +520,16 @@ async def get_pack(
     pack_id: str,
     gsid: Optional[str] = Query(None, description="caller's gsid; includes ups/downs/myVote when supplied"),
 ):
-    """Single pack's current state. When `gsid` is supplied, the response also
-    includes `ups`, `downs`, and the caller's `myVote` (spec §4.3). The common
-    path gets vote state from the list summary, so this per-open fetch is a
-    fallback."""
+    """Single pack's current state. `authorId` is the author's gsid serialized
+    as a string — the client's owner check (Unpublish/Delete buttons) reads it
+    from this response. Unpublished packs are absent from `packs`, so they
+    return 404 here, consistent with how drafts are hidden."""
     pack = await db.packs.find_one({"pack_id": pack_id, "deleted": {"$ne": True}})
     if not pack:
         raise HTTPException(404, "Pack not found")
 
-    # author is either a discord_id (int) or a gsid (string); resolve both.
-    author_name = await _resolve_author_name(pack)
+    author = await db.users.find_one({"discord_id": pack["author"]})
+    author_name = author["username"] if author else "Unknown User"
 
     thumbnail_url = None
     if pack.get("thumbnail"):
@@ -596,7 +538,7 @@ async def get_pack(
     response = {
         "packId": pack["pack_id"],
         "name": pack["name"],
-        "authorId": pack["author"],
+        "authorId": str(pack["author"]),
         "author": author_name,
         "description": pack.get("description", ""),
         "thumbnailUrl": thumbnail_url,
