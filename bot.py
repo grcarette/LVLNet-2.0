@@ -30,7 +30,13 @@ class LVLNetBot(commands.Bot):
         await self.tree.sync(guild=GUILD)
 
     async def on_ready(self):
-        self.guild = self.guilds[0]
+        # The bot is now a member of multiple servers, so guilds[0] is no longer
+        # reliably the main one. Pin self.guild to the configured main server —
+        # that's where the posting UI (level-sharing buttons) and the logs live.
+        # The forum mirroring itself loops over self.guilds and does not rely on
+        # this value.
+        main_guild_id = int(os.getenv('GUILD_ID'))
+        self.guild = self.get_guild(main_guild_id) or self.guilds[0]
         print("Bot initialized")
 
         level_sharing_channel_id = int(os.getenv('LEVEL_SHARING_CHANNEL_ID'))

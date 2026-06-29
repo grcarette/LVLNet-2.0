@@ -63,10 +63,14 @@ class DataHandler:
         )
         return result.modified_count
 
-    async def attach_post_to_level(self, level_code, post_id):
+    async def attach_posts_to_level(self, level_code, posts):
+        """Store the list of forum threads created for this level across every
+        server it was mirrored to. Each entry is a dict of
+        {guild_id, channel_id, thread_id}. Replaces the old single-thread
+        'forum_post_id' field; remove_level reads both shapes for back-compat."""
         result = await self.level_collection.update_one(
             {'code': level_code},
-            {'$set': {'forum_post_id': post_id}}
+            {'$set': {'forum_posts': posts}}
         )
         return result.modified_count
 
@@ -139,7 +143,3 @@ class DataHandler:
         for user_id in new_creator_ids:
             username = await self.get_username(user_id)
             await self.register_user(user_id, username)
-        
-
-
-
