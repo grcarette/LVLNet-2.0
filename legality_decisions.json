@@ -41,13 +41,6 @@
     "confidence": 1,
     "updated_at": "2026-06-02T17:22:33.680507+00:00"
   },
-  "272W-KKSE": {
-    "code": "272W-KKSE",
-    "name": "Forest Spirits",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T17:29:53.390054+00:00"
-  },
   "6Z31-WSUA": {
     "code": "6Z31-WSUA",
     "name": "Constrution Site",
@@ -1294,13 +1287,6 @@
     "confidence": 1,
     "updated_at": "2026-06-02T20:03:34.266637+00:00"
   },
-  "J1EY-6RR6": {
-    "code": "J1EY-6RR6",
-    "name": "Oasis",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:03:39.736294+00:00"
-  },
   "THNZ-C683": {
     "code": "THNZ-C683",
     "name": "Plasma Mines",
@@ -1328,13 +1314,6 @@
     "decision": "legal",
     "confidence": 1,
     "updated_at": "2026-06-02T20:04:56.802589+00:00"
-  },
-  "H75Y-ZNY4": {
-    "code": "H75Y-ZNY4",
-    "name": "MARPHY CLASH",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:05:17.441012+00:00"
   },
   "X956-UMUY": {
     "code": "X956-UMUY",
@@ -1601,5 +1580,33 @@
     "decision": "legal",
     "confidence": 2,
     "updated_at": "2026-06-02T20:30:45.455604+00:00"
+  },
+  "BVNB-09Z7": {
+    "code": "BVNB-09Z7",
+    "name": "Sea-Through",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T19:13:23.104091+00:00"
+  },
+  "STWD-MVZT": {
+    "code": "STWD-MVZT",
+    "name": "Shore",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T19:15:34.850943+00:00"
+  },
+  "NEA4-XRH9": {
+    "code": "NEA4-XRH9",
+    "name": "Grapevine",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T19:18:40.763344+00:00"
+  },
+  "XBVX-YEJH": {
+    "code": "XBVX-YEJH",
+    "name": "Remnants",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T19:21:25.136297+00:00"
   }
 }

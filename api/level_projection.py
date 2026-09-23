@@ -41,6 +41,7 @@ def creator_lookup_stages() -> list:
                 "mode": 1,
                 "tournament_legal": 1,
                 "hidden": {"$ifNull": ["$hidden", False]},
+                "under_review": {"$ifNull": ["$under_review", False]},
                 "thumbnailUrl": {
                     "$cond": [
                         {"$ifNull": ["$thumbnail", False]},

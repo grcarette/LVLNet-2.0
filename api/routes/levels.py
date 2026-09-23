@@ -16,7 +16,7 @@ from ..imgur import get_imgur_data
 from ..level_projection import creator_lookup_stages
 from api.models.level import LevelCreateRequest
 from api.utils import limiter, require_api_key
-from api.models.level import LevelCreateRequest, LegalityUpdateRequest
+from api.models.level import LevelCreateRequest, LegalityUpdateRequest, ReviewUpdateRequest
 # ensure_account / _process_thumbnail live in the packs router. Importing them
 # here is safe (packs does not import levels, so there is no cycle) and reuses
 # the exact same account-seeding and thumbnail validate/downscale/PNG pipeline.
@@ -107,6 +107,28 @@ async def set_level_legality(
         {"$set": {"tournament_legal": body.tournament_legal}},
     )
     return {"code": code, "tournament_legal": body.tournament_legal}
+
+
+@router.patch("/{code}/review", dependencies=[Depends(require_api_key)])
+@limiter.limit("30/minute")
+async def set_level_review(
+    request: Request, code: str, body: ReviewUpdateRequest
+):
+    """Flag a level as under review (or clear the flag).
+
+    Sets the `under_review` boolean on the level document — added on first use,
+    so documents that were never reviewed simply lack the field (the read
+    projection reports those as false). Idempotent, and privileged like the
+    legality write: the review tool holds the API key server-side."""
+    level = await db.levels.find_one({"code": code}, {"_id": 0, "code": 1})
+    if not level:
+        raise HTTPException(404, "Level not found")
+
+    await db.levels.update_one(
+        {"code": code},
+        {"$set": {"under_review": body.under_review}},
+    )
+    return {"code": code, "under_review": body.under_review}
 
 
 @router.get("/{code}/thumbnail")

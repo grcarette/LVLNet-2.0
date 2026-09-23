@@ -17,3 +17,6 @@ class LevelCreateRequest(BaseModel):
 
 class LegalityUpdateRequest(BaseModel):
     tournament_legal: bool
+
+class ReviewUpdateRequest(BaseModel):
+    under_review: bool
