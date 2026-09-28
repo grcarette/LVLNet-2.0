@@ -44,13 +44,15 @@ class LVLNetBot(commands.Bot):
 
 if __name__ == "__main__":
     load_dotenv()
+    # No privileged intents (members / message_content / presences): everything
+    # runs through slash commands and components, which don't need them.
     intents = discord.Intents.default()
 
-    intents.members = True
-    intents.messages = True 
-    intents.message_content = True
+    intents.messages = True
     intents.guilds = True
     intents.reactions = True
 
-    bot = LVLNetBot(command_prefix="/", intents=intents)
+    # There are no prefix commands; when_mentioned stops discord.py warning at
+    # startup that the message content intent is missing.
+    bot = LVLNetBot(command_prefix=commands.when_mentioned, intents=intents)
     bot.run(os.getenv("DISCORD_TOKEN"))

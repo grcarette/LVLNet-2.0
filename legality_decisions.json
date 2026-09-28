@@ -11,7 +11,7 @@
     "name": "Construct (splitless)",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T19:38:13.020109+00:00"
+    "updated_at": "2026-09-23T20:22:55.137650+00:00"
   },
   "0AVC-52X4": {
     "code": "0AVC-52X4",
@@ -46,14 +46,14 @@
     "name": "Constrution Site",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T17:31:31.859611+00:00"
+    "updated_at": "2026-09-23T19:31:37.074558+00:00"
   },
   "Z6MP-ACAU": {
     "code": "Z6MP-ACAU",
     "name": "Temporal",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T17:35:22.201399+00:00"
+    "updated_at": "2026-09-23T21:00:52.135259+00:00"
   },
   "R66C-V9U1": {
     "code": "R66C-V9U1",
@@ -66,8 +66,8 @@
     "code": "2729-R23K",
     "name": "Red Moonlight TL",
     "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T17:41:58.913518+00:00"
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:33:25.516547+00:00"
   },
   "8USM-33DP": {
     "code": "8USM-33DP",
@@ -75,20 +75,6 @@
     "decision": "legal",
     "confidence": 2,
     "updated_at": "2026-06-02T17:43:09.995577+00:00"
-  },
-  "CRRE-1W06": {
-    "code": "CRRE-1W06",
-    "name": "Cogwork Skies",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T17:48:05.699310+00:00"
-  },
-  "GX31-XUBJ": {
-    "code": "GX31-XUBJ",
-    "name": "SugarParadise II",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T17:48:39.287965+00:00"
   },
   "A0A9-4GCT": {
     "code": "A0A9-4GCT",
@@ -104,26 +90,12 @@
     "confidence": 2,
     "updated_at": "2026-06-02T17:51:08.213287+00:00"
   },
-  "UNN7-B67U": {
-    "code": "UNN7-B67U",
-    "name": "ULTIMATE 10 YEARS",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T17:51:25.137523+00:00"
-  },
-  "7E88-RGW3": {
-    "code": "7E88-RGW3",
-    "name": "CANDYWORLD!!!",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T17:56:05.001705+00:00"
-  },
   "8JG8-87A4": {
     "code": "8JG8-87A4",
     "name": "Inverted Flower Field",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T17:56:13.202733+00:00"
+    "updated_at": "2026-09-23T20:02:06.424115+00:00"
   },
   "WG4A-BGJP": {
     "code": "WG4A-BGJP",
@@ -144,14 +116,7 @@
     "name": "bateau de tuf ft bautallo",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T18:03:13.799864+00:00"
-  },
-  "6RJW-YJPY": {
-    "code": "6RJW-YJPY",
-    "name": "GemStone Cave II",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:04:01.725790+00:00"
+    "updated_at": "2026-09-23T21:27:50.301709+00:00"
   },
   "5RBB-HA8W": {
     "code": "5RBB-HA8W",
@@ -171,8 +136,8 @@
     "code": "V1CW-8XZ8",
     "name": "Coral Tower",
     "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T18:11:12.457988+00:00"
+    "confidence": 1,
+    "updated_at": "2026-09-23T19:45:52.885132+00:00"
   },
   "FEVN-MREE": {
     "code": "FEVN-MREE",
@@ -181,33 +146,12 @@
     "confidence": 1,
     "updated_at": "2026-06-02T18:13:59.106216+00:00"
   },
-  "ABTF-7396": {
-    "code": "ABTF-7396",
-    "name": "Biohazard V2",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T18:16:19.792242+00:00"
-  },
-  "2TD8-E5V4": {
-    "code": "2TD8-E5V4",
-    "name": "Love Shot",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T18:18:45.912285+00:00"
-  },
   "BT4G-S7M9": {
     "code": "BT4G-S7M9",
     "name": "Steam and Punk COMP",
     "decision": "legal",
     "confidence": 1,
     "updated_at": "2026-06-02T18:19:18.146884+00:00"
-  },
-  "P2YF-CY16": {
-    "code": "P2YF-CY16",
-    "name": "火马灯会",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:19:32.872989+00:00"
   },
   "MVKW-GJ66": {
     "code": "MVKW-GJ66",
@@ -216,26 +160,12 @@
     "confidence": 1,
     "updated_at": "2026-06-02T18:20:20.740640+00:00"
   },
-  "XNEN-3G3V": {
-    "code": "XNEN-3G3V",
-    "name": "disassociate",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:20:24.064015+00:00"
-  },
   "B0RJ-CXN8": {
     "code": "B0RJ-CXN8",
     "name": "Ice Cream Heaven (TO)",
     "decision": "legal",
     "confidence": 1,
     "updated_at": "2026-06-02T18:20:42.101656+00:00"
-  },
-  "NF75-83F0": {
-    "code": "NF75-83F0",
-    "name": "What You Have Tamed",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:21:31.209847+00:00"
   },
   "AERA-YU74": {
     "code": "AERA-YU74",
@@ -258,13 +188,6 @@
     "confidence": 2,
     "updated_at": "2026-06-02T18:23:18.955989+00:00"
   },
-  "DYXF-7GUK": {
-    "code": "DYXF-7GUK",
-    "name": "太阳神殿 Temple of the Sun",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T18:23:47.475466+00:00"
-  },
   "WD74-3RBA": {
     "code": "WD74-3RBA",
     "name": "Billow",
@@ -286,19 +209,12 @@
     "confidence": 3,
     "updated_at": "2026-06-02T18:27:02.239530+00:00"
   },
-  "EPKK-UD1T": {
-    "code": "EPKK-UD1T",
-    "name": "Merry Death COMP",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:27:17.882573+00:00"
-  },
   "GPXR-U589": {
     "code": "GPXR-U589",
     "name": "▓",
     "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T18:28:29.998406+00:00"
+    "confidence": 1,
+    "updated_at": "2026-09-23T19:56:39.796033+00:00"
   },
   "YH3U-7YEC": {
     "code": "YH3U-7YEC",
@@ -340,14 +256,7 @@
     "name": "Pizzascape",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T18:31:19.826931+00:00"
-  },
-  "4PA1-J0A3": {
-    "code": "4PA1-J0A3",
-    "name": "Assimilated Universe",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:32:58.017808+00:00"
+    "updated_at": "2026-09-23T21:39:25.592383+00:00"
   },
   "55CD-WUC1": {
     "code": "55CD-WUC1",
@@ -356,13 +265,6 @@
     "confidence": 3,
     "updated_at": "2026-06-02T18:33:21.688958+00:00"
   },
-  "8WKK-HVG7": {
-    "code": "8WKK-HVG7",
-    "name": "AstroDucks",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:34:45.185804+00:00"
-  },
   "F1JX-MME9": {
     "code": "F1JX-MME9",
     "name": "Dimensional Breakout",
@@ -370,33 +272,12 @@
     "confidence": 3,
     "updated_at": "2026-06-02T18:34:54.540367+00:00"
   },
-  "9V47-4AJV": {
-    "code": "9V47-4AJV",
-    "name": "Divine Guardian",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:37:04.258930+00:00"
-  },
   "XTJP-N8S0": {
     "code": "XTJP-N8S0",
     "name": "Grand Library 2",
     "decision": "legal",
     "confidence": 3,
     "updated_at": "2026-06-02T18:37:12.897835+00:00"
-  },
-  "JT5P-87H1": {
-    "code": "JT5P-87H1",
-    "name": "Hunter&#39;s March",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:37:49.120009+00:00"
-  },
-  "9REB-Z9CA": {
-    "code": "9REB-Z9CA",
-    "name": "Chameleon Cage 3",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:39:12.784742+00:00"
   },
   "4434-TY9A": {
     "code": "4434-TY9A",
@@ -440,27 +321,6 @@
     "confidence": 2,
     "updated_at": "2026-06-02T18:43:33.539134+00:00"
   },
-  "2XPZ-DAB8": {
-    "code": "2XPZ-DAB8",
-    "name": "Nomad [Redo]",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:43:53.142154+00:00"
-  },
-  "4T2J-MXF5": {
-    "code": "4T2J-MXF5",
-    "name": "Lovely Little Life Revamp",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:44:54.921443+00:00"
-  },
-  "70MX-68NV": {
-    "code": "70MX-68NV",
-    "name": "Entrance",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:46:55.817723+00:00"
-  },
   "N6AC-FA75": {
     "code": "N6AC-FA75",
     "name": "&#34;Gameplay&#34; level",
@@ -473,7 +333,7 @@
     "name": "The Warning (TS)",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T18:48:07.200997+00:00"
+    "updated_at": "2026-09-23T21:21:43.228425+00:00"
   },
   "DM6A-B5GD": {
     "code": "DM6A-B5GD",
@@ -489,26 +349,12 @@
     "confidence": 2,
     "updated_at": "2026-06-02T18:50:23.829300+00:00"
   },
-  "6SUB-A63X": {
-    "code": "6SUB-A63X",
-    "name": "Tempest Desert Village",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:50:30.097731+00:00"
-  },
   "5WRY-308V": {
     "code": "5WRY-308V",
     "name": "Drifting Canopys",
     "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:50:41.579553+00:00"
-  },
-  "49W0-30FJ": {
-    "code": "49W0-30FJ",
-    "name": "The Twisted King",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:51:37.047942+00:00"
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:43:32.779432+00:00"
   },
   "M2AV-EVBU": {
     "code": "M2AV-EVBU",
@@ -522,21 +368,7 @@
     "name": "Spiky Tree",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T18:52:28.490598+00:00"
-  },
-  "BGP2-WGS1": {
-    "code": "BGP2-WGS1",
-    "name": "CONTRAST",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:52:43.425696+00:00"
-  },
-  "HXKU-AG7H": {
-    "code": "HXKU-AG7H",
-    "name": "EXISTENTIAL (TS)",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:53:08.447998+00:00"
+    "updated_at": "2026-09-23T21:28:55.508378+00:00"
   },
   "7D4K-8B46": {
     "code": "7D4K-8B46",
@@ -545,20 +377,6 @@
     "confidence": 1,
     "updated_at": "2026-06-02T18:53:14.504438+00:00"
   },
-  "R4NP-A9WJ": {
-    "code": "R4NP-A9WJ",
-    "name": "封装工艺 The Package Process",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T18:54:07.189740+00:00"
-  },
-  "2GXZ-U1F1": {
-    "code": "2GXZ-U1F1",
-    "name": "Undertow 1993",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:54:40.249637+00:00"
-  },
   "U0AW-GU42": {
     "code": "U0AW-GU42",
     "name": "Pointers",
@@ -566,33 +384,19 @@
     "confidence": 2,
     "updated_at": "2026-06-02T18:55:42.720760+00:00"
   },
-  "6XNV-GUJB": {
-    "code": "6XNV-GUJB",
-    "name": "Dilapidated",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:55:52.556681+00:00"
-  },
   "XCZ1-2P23": {
     "code": "XCZ1-2P23",
     "name": "the critters 2",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T18:56:02.832679+00:00"
+    "updated_at": "2026-09-23T21:21:12.843278+00:00"
   },
   "DY62-U7JG": {
     "code": "DY62-U7JG",
     "name": "Three body problem",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T18:56:09.850151+00:00"
-  },
-  "J2CE-5D03": {
-    "code": "J2CE-5D03",
-    "name": "HK - City of Tears",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-14T17:27:27.763171+00:00"
+    "updated_at": "2026-09-23T21:22:47.039799+00:00"
   },
   "X4SM-XN0R": {
     "code": "X4SM-XN0R",
@@ -601,26 +405,12 @@
     "confidence": 3,
     "updated_at": "2026-06-02T18:56:50.491201+00:00"
   },
-  "P52S-BEK7": {
-    "code": "P52S-BEK7",
-    "name": "Avernus",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:58:28.759935+00:00"
-  },
-  "CYFW-P6FC": {
-    "code": "CYFW-P6FC",
-    "name": "Up In The Sky",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T18:59:15.866400+00:00"
-  },
   "PFE1-AG06": {
     "code": "PFE1-AG06",
     "name": "Pipeyard",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T18:59:19.041585+00:00"
+    "updated_at": "2026-09-23T21:21:58.525259+00:00"
   },
   "MJ2B-T4HT": {
     "code": "MJ2B-T4HT",
@@ -650,19 +440,12 @@
     "confidence": 1,
     "updated_at": "2026-06-02T19:03:35.651358+00:00"
   },
-  "EX26-9YAT": {
-    "code": "EX26-9YAT",
-    "name": "Storm over Kamino",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:03:42.754417+00:00"
-  },
   "AXEU-7AR2": {
     "code": "AXEU-7AR2",
     "name": "The Rusted Mechanism (TS)",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T19:04:10.997922+00:00"
+    "updated_at": "2026-09-23T21:22:58.412553+00:00"
   },
   "0DRB-BCNW": {
     "code": "0DRB-BCNW",
@@ -670,13 +453,6 @@
     "decision": "legal",
     "confidence": 1,
     "updated_at": "2026-06-02T19:04:28.784417+00:00"
-  },
-  "MRXK-48ZW": {
-    "code": "MRXK-48ZW",
-    "name": "Favela Fever TL",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:04:56.168444+00:00"
   },
   "YFYS-UYCH": {
     "code": "YFYS-UYCH",
@@ -699,20 +475,6 @@
     "confidence": 1,
     "updated_at": "2026-06-02T19:09:39.840463+00:00"
   },
-  "D6JC-XTUP": {
-    "code": "D6JC-XTUP",
-    "name": "Mu.",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:09:48.527315+00:00"
-  },
-  "GC3W-TNUC": {
-    "code": "GC3W-TNUC",
-    "name": "Amber Horizon Grove (2)",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:12:07.230631+00:00"
-  },
   "D7RB-PNJR": {
     "code": "D7RB-PNJR",
     "name": "The palace",
@@ -734,19 +496,12 @@
     "confidence": 2,
     "updated_at": "2026-06-02T19:12:16.446894+00:00"
   },
-  "AP0H-J420": {
-    "code": "AP0H-J420",
-    "name": "The Garden v2",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:14:27.855314+00:00"
-  },
   "HZDM-UPMB": {
     "code": "HZDM-UPMB",
     "name": "Rainy City",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T19:14:40.628313+00:00"
+    "updated_at": "2026-09-23T20:54:43.266480+00:00"
   },
   "DGD8-VNPR": {
     "code": "DGD8-VNPR",
@@ -759,8 +514,8 @@
     "code": "P088-FBA6",
     "name": "White Palace",
     "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T19:16:08.100121+00:00"
+    "confidence": 1,
+    "updated_at": "2026-09-23T21:39:02.311426+00:00"
   },
   "8Z9A-69CU": {
     "code": "8Z9A-69CU",
@@ -775,13 +530,6 @@
     "decision": "legal",
     "confidence": 3,
     "updated_at": "2026-06-02T19:16:58.904064+00:00"
-  },
-  "DXME-N34T": {
-    "code": "DXME-N34T",
-    "name": "Stargazing",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:17:11.075328+00:00"
   },
   "V2B1-A50W": {
     "code": "V2B1-A50W",
@@ -816,7 +564,7 @@
     "name": "Rainbow Colony",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T19:31:40.098833+00:00"
+    "updated_at": "2026-09-23T20:42:36.506763+00:00"
   },
   "K49S-BVEP": {
     "code": "K49S-BVEP",
@@ -837,21 +585,7 @@
     "name": "Fishbowlz v2",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T19:32:41.775740+00:00"
-  },
-  "SWCU-7PS6": {
-    "code": "SWCU-7PS6",
-    "name": "CRASH",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:33:17.925941+00:00"
-  },
-  "S7TV-W9HP": {
-    "code": "S7TV-W9HP",
-    "name": "Fragile Wilderness",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:33:24.234920+00:00"
+    "updated_at": "2026-09-23T21:33:02.888549+00:00"
   },
   "A46G-S39C": {
     "code": "A46G-S39C",
@@ -859,27 +593,6 @@
     "decision": "legal",
     "confidence": 1,
     "updated_at": "2026-06-02T19:33:55.748704+00:00"
-  },
-  "0GFU-GG75": {
-    "code": "0GFU-GG75",
-    "name": "Thousand Year Stand REDO",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T19:35:16.900358+00:00"
-  },
-  "42VM-6NJU": {
-    "code": "42VM-6NJU",
-    "name": "幸福感",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T19:35:41.300857+00:00"
-  },
-  "VTHP-8UPB": {
-    "code": "VTHP-8UPB",
-    "name": "Cocytus, the Ninth Hell",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:35:49.945136+00:00"
   },
   "NT49-6XC7": {
     "code": "NT49-6XC7",
@@ -902,13 +615,6 @@
     "confidence": 2,
     "updated_at": "2026-06-02T19:35:59.049697+00:00"
   },
-  "61T2-RJ53": {
-    "code": "61T2-RJ53",
-    "name": "Dust to Dust",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:36:08.381245+00:00"
-  },
   "D1NX-WH40": {
     "code": "D1NX-WH40",
     "name": "Hand in the Clouds",
@@ -921,7 +627,7 @@
     "name": "Soaring Canyons",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T19:37:24.254295+00:00"
+    "updated_at": "2026-09-23T20:18:27.219746+00:00"
   },
   "27S6-Z110": {
     "code": "27S6-Z110",
@@ -934,8 +640,8 @@
     "code": "Y9CJ-MEYM",
     "name": "Bongy Tree",
     "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T19:38:42.830919+00:00"
+    "confidence": 1,
+    "updated_at": "2026-09-23T20:24:01.482080+00:00"
   },
   "7CV1-GGDM": {
     "code": "7CV1-GGDM",
@@ -949,7 +655,7 @@
     "name": "up high",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T19:40:54.344503+00:00"
+    "updated_at": "2026-09-23T20:50:59.532671+00:00"
   },
   "GKDX-3UNN": {
     "code": "GKDX-3UNN",
@@ -957,13 +663,6 @@
     "decision": "legal",
     "confidence": 3,
     "updated_at": "2026-06-02T19:43:20.483735+00:00"
-  },
-  "EFW8-20GK": {
-    "code": "EFW8-20GK",
-    "name": "Disruption",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:43:37.028234+00:00"
   },
   "Y050-M70C": {
     "code": "Y050-M70C",
@@ -986,13 +685,6 @@
     "confidence": 3,
     "updated_at": "2026-06-02T19:45:08.576803+00:00"
   },
-  "5HY3-Z9T1": {
-    "code": "5HY3-Z9T1",
-    "name": "Wrack and Ruin",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:46:01.354333+00:00"
-  },
   "AZDK-G1R4": {
     "code": "AZDK-G1R4",
     "name": "Aquaeductus Ornamentarius",
@@ -1000,26 +692,12 @@
     "confidence": 2,
     "updated_at": "2026-06-02T19:46:07.984113+00:00"
   },
-  "M8MD-ZYC9": {
-    "code": "M8MD-ZYC9",
-    "name": "Verdure",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:46:18.768118+00:00"
-  },
-  "UJG9-51UH": {
-    "code": "UJG9-51UH",
-    "name": "the carnival",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:46:49.344419+00:00"
-  },
   "EW6G-9P03": {
     "code": "EW6G-9P03",
     "name": "World Underground",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T19:46:55.670832+00:00"
+    "updated_at": "2026-09-23T21:09:32.840340+00:00"
   },
   "UUW2-0W8G": {
     "code": "UUW2-0W8G",
@@ -1027,27 +705,6 @@
     "decision": "legal",
     "confidence": 3,
     "updated_at": "2026-06-02T19:46:57.763548+00:00"
-  },
-  "NF0Z-J83A": {
-    "code": "NF0Z-J83A",
-    "name": "Glen Den",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:47:32.599712+00:00"
-  },
-  "4VHC-7A7D": {
-    "code": "4VHC-7A7D",
-    "name": "Sewer Deposit V2 COMP",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:47:37.299807+00:00"
-  },
-  "8PYY-FPTX": {
-    "code": "8PYY-FPTX",
-    "name": "A Cyber&#39;s World REDO",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:47:57.182821+00:00"
   },
   "SB38-RUZJ": {
     "code": "SB38-RUZJ",
@@ -1060,8 +717,8 @@
     "code": "GPVV-66PP",
     "name": "Verdant Ascent V2",
     "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T19:48:13.287151+00:00"
+    "confidence": 1,
+    "updated_at": "2026-09-23T21:14:56.664826+00:00"
   },
   "PFJA-EUHV": {
     "code": "PFJA-EUHV",
@@ -1077,13 +734,6 @@
     "confidence": 3,
     "updated_at": "2026-06-02T19:48:17.575100+00:00"
   },
-  "XNWX-932N": {
-    "code": "XNWX-932N",
-    "name": "Doppler",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:48:41.828884+00:00"
-  },
   "DT30-BE6T": {
     "code": "DT30-BE6T",
     "name": "Arise [Redo]",
@@ -1098,19 +748,12 @@
     "confidence": 2,
     "updated_at": "2026-06-02T19:49:04.785644+00:00"
   },
-  "2KEX-Z4UE": {
-    "code": "2KEX-Z4UE",
-    "name": "Land Down Under",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:49:34.722636+00:00"
-  },
   "2T2P-19TM": {
     "code": "2T2P-19TM",
     "name": "Buried Pyramid",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T19:50:26.937003+00:00"
+    "updated_at": "2026-09-23T20:46:33.781251+00:00"
   },
   "S0BX-ANC0": {
     "code": "S0BX-ANC0",
@@ -1119,26 +762,12 @@
     "confidence": 1,
     "updated_at": "2026-06-02T19:50:30.823856+00:00"
   },
-  "WS12-YGYC": {
-    "code": "WS12-YGYC",
-    "name": "skyline safari",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:51:16.233823+00:00"
-  },
   "HGJ3-TA54": {
     "code": "HGJ3-TA54",
     "name": "starfish",
     "decision": "legal",
     "confidence": 1,
     "updated_at": "2026-06-02T19:54:05.374612+00:00"
-  },
-  "R88M-AD4J": {
-    "code": "R88M-AD4J",
-    "name": "Infernal Machinery V2",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:54:09.840281+00:00"
   },
   "HM7V-U8GC": {
     "code": "HM7V-U8GC",
@@ -1196,27 +825,6 @@
     "confidence": 3,
     "updated_at": "2026-06-02T19:57:56.776286+00:00"
   },
-  "BS1X-P78N": {
-    "code": "BS1X-P78N",
-    "name": "Panda Village v2",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:58:35.000872+00:00"
-  },
-  "GT99-HHU5": {
-    "code": "GT99-HHU5",
-    "name": "Corrosive",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:59:20.053023+00:00"
-  },
-  "A5AV-28V8": {
-    "code": "A5AV-28V8",
-    "name": "Abstract Library",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T19:59:22.498235+00:00"
-  },
   "KDBU-CC0W": {
     "code": "KDBU-CC0W",
     "name": "Puzzle of Memories",
@@ -1230,13 +838,6 @@
     "decision": "legal",
     "confidence": 3,
     "updated_at": "2026-06-02T20:00:24.385311+00:00"
-  },
-  "0AWD-5K4C": {
-    "code": "0AWD-5K4C",
-    "name": "The Great Watatsumi",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:00:56.341355+00:00"
   },
   "1M6K-3X62": {
     "code": "1M6K-3X62",
@@ -1257,7 +858,7 @@
     "name": "aura",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T20:02:47.442891+00:00"
+    "updated_at": "2026-09-23T21:01:22.034751+00:00"
   },
   "GYX3-U5ND": {
     "code": "GYX3-U5ND",
@@ -1266,27 +867,6 @@
     "confidence": 1,
     "updated_at": "2026-06-02T20:03:14.022431+00:00"
   },
-  "65RM-5UKF": {
-    "code": "65RM-5UKF",
-    "name": "Voyage",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:03:19.852591+00:00"
-  },
-  "55UF-JCPP": {
-    "code": "55UF-JCPP",
-    "name": "π之史诗 The Epopee of Pi",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:03:28.919416+00:00"
-  },
-  "20MJ-U374": {
-    "code": "20MJ-U374",
-    "name": "realm of the sky v2",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:03:34.266637+00:00"
-  },
   "THNZ-C683": {
     "code": "THNZ-C683",
     "name": "Plasma Mines",
@@ -1294,26 +874,12 @@
     "confidence": 1,
     "updated_at": "2026-06-02T20:03:42.776410+00:00"
   },
-  "NRSF-4030": {
-    "code": "NRSF-4030",
-    "name": "Cast Depth",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:04:32.430748+00:00"
-  },
   "48Z3-TDJ0": {
     "code": "48Z3-TDJ0",
     "name": "Moonlit Ruins",
     "decision": "legal",
     "confidence": 3,
     "updated_at": "2026-06-02T20:04:46.578605+00:00"
-  },
-  "98CH-H4XN": {
-    "code": "98CH-H4XN",
-    "name": "Bullseye",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:04:56.802589+00:00"
   },
   "X956-UMUY": {
     "code": "X956-UMUY",
@@ -1336,13 +902,6 @@
     "confidence": 2,
     "updated_at": "2026-06-02T20:07:46.634962+00:00"
   },
-  "W2WK-6BGY": {
-    "code": "W2WK-6BGY",
-    "name": "STAGNANT",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:08:18.960413+00:00"
-  },
   "ZN3K-5RUF": {
     "code": "ZN3K-5RUF",
     "name": "Aphelian Sanctuary",
@@ -1364,13 +923,6 @@
     "confidence": 3,
     "updated_at": "2026-06-02T20:10:11.947140+00:00"
   },
-  "PA49-4UBD": {
-    "code": "PA49-4UBD",
-    "name": "Soul Furnace",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T20:10:31.871842+00:00"
-  },
   "WWPN-14ES": {
     "code": "WWPN-14ES",
     "name": "Chaos in The Order",
@@ -1390,7 +942,7 @@
     "name": "Jungle depths (Party)",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T20:12:41.602797+00:00"
+    "updated_at": "2026-09-23T21:33:06.336454+00:00"
   },
   "GHWZ-7SK8": {
     "code": "GHWZ-7SK8",
@@ -1399,19 +951,12 @@
     "confidence": 2,
     "updated_at": "2026-06-02T20:12:54.205296+00:00"
   },
-  "F9KR-JEEB": {
-    "code": "F9KR-JEEB",
-    "name": "Untitled Bautallo V2",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:13:23.390412+00:00"
-  },
   "BVG8-REVE": {
     "code": "BVG8-REVE",
     "name": "Merry Glorpmas",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T20:13:36.660958+00:00"
+    "updated_at": "2026-09-23T21:35:59.822670+00:00"
   },
   "CNPK-WR7G": {
     "code": "CNPK-WR7G",
@@ -1419,13 +964,6 @@
     "decision": "legal",
     "confidence": 1,
     "updated_at": "2026-06-02T20:14:16.769480+00:00"
-  },
-  "BT1S-TMNN": {
-    "code": "BT1S-TMNN",
-    "name": "GemStone Cave",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-14T17:27:33.088040+00:00"
   },
   "6JBG-7MTR": {
     "code": "6JBG-7MTR",
@@ -1439,35 +977,21 @@
     "name": "Pengu Rendez. Ext. [Redo]",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T20:17:32.464924+00:00"
+    "updated_at": "2026-09-23T21:32:19.054721+00:00"
   },
   "GVW5-XYUT": {
     "code": "GVW5-XYUT",
     "name": "Prevail",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T20:18:58.110798+00:00"
+    "updated_at": "2026-09-23T20:53:33.245144+00:00"
   },
   "2J2G-9BZG": {
     "code": "2J2G-9BZG",
     "name": "Sweet Sour",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T20:19:04.644478+00:00"
-  },
-  "XWZN-08P2": {
-    "code": "XWZN-08P2",
-    "name": "Abstract Jungle COMP",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:20:53.566226+00:00"
-  },
-  "SU8Y-AMJE": {
-    "code": "SU8Y-AMJE",
-    "name": "Distorted Reality",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:21:07.920755+00:00"
+    "updated_at": "2026-09-23T20:44:21.021099+00:00"
   },
   "N0Y0-B8JJ": {
     "code": "N0Y0-B8JJ",
@@ -1481,42 +1005,28 @@
     "name": "Abberation",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T20:23:23.446708+00:00"
+    "updated_at": "2026-09-23T21:37:38.072257+00:00"
   },
   "CY02-3WPH": {
     "code": "CY02-3WPH",
     "name": "TO THE MOON!",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-06-02T20:23:31.688089+00:00"
+    "updated_at": "2026-09-23T21:15:51.198738+00:00"
   },
   "8XNZ-DAK4": {
     "code": "8XNZ-DAK4",
     "name": "Blood Moon Sky",
     "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T20:24:43.068983+00:00"
+    "confidence": 1,
+    "updated_at": "2026-09-23T21:20:58.141321+00:00"
   },
   "KV8K-VJ77": {
     "code": "KV8K-VJ77",
     "name": "Reaver",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T20:24:48.136320+00:00"
-  },
-  "RYH9-ZHDU": {
-    "code": "RYH9-ZHDU",
-    "name": "Devourer of Worlds",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:26:20.017796+00:00"
-  },
-  "RHHS-8DV6": {
-    "code": "RHHS-8DV6",
-    "name": "W.I.P. ft Shlumpsk",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:26:22.044360+00:00"
+    "updated_at": "2026-09-23T21:18:06.124799+00:00"
   },
   "4KPY-M1Y6": {
     "code": "4KPY-M1Y6",
@@ -1532,26 +1042,12 @@
     "confidence": 2,
     "updated_at": "2026-06-02T20:26:52.018374+00:00"
   },
-  "KKEG-E26D": {
-    "code": "KKEG-E26D",
-    "name": "HERESY",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:27:32.788440+00:00"
-  },
   "KBWS-4B4C": {
     "code": "KBWS-4B4C",
     "name": "Substance",
     "decision": "legal",
     "confidence": 1,
     "updated_at": "2026-06-02T20:27:35.878982+00:00"
-  },
-  "0KMA-AJH1": {
-    "code": "0KMA-AJH1",
-    "name": "FANTASY",
-    "decision": "legal",
-    "confidence": 1,
-    "updated_at": "2026-06-02T20:28:02.271744+00:00"
   },
   "TUH6-CHU5": {
     "code": "TUH6-CHU5",
@@ -1567,46 +1063,347 @@
     "confidence": 1,
     "updated_at": "2026-06-02T20:29:25.328418+00:00"
   },
-  "ZS76-G0JT": {
-    "code": "ZS76-G0JT",
-    "name": "Sky Arch. Ruins (Redo)",
-    "decision": "legal",
-    "confidence": 2,
-    "updated_at": "2026-06-02T20:29:46.105990+00:00"
-  },
   "U4B0-NM63": {
     "code": "U4B0-NM63",
     "name": "Floating Waterways",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-06-02T20:30:45.455604+00:00"
+    "updated_at": "2026-09-23T20:40:01.628233+00:00"
   },
   "BVNB-09Z7": {
     "code": "BVNB-09Z7",
     "name": "Sea-Through",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-09-23T19:13:23.104091+00:00"
+    "updated_at": "2026-09-23T20:16:09.668904+00:00"
   },
   "STWD-MVZT": {
     "code": "STWD-MVZT",
     "name": "Shore",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-09-23T19:15:34.850943+00:00"
+    "updated_at": "2026-09-23T21:34:02.998541+00:00"
   },
   "NEA4-XRH9": {
     "code": "NEA4-XRH9",
     "name": "Grapevine",
     "decision": "legal",
     "confidence": 2,
-    "updated_at": "2026-09-23T19:18:40.763344+00:00"
+    "updated_at": "2026-09-23T21:27:52.338067+00:00"
   },
   "XBVX-YEJH": {
     "code": "XBVX-YEJH",
     "name": "Remnants",
     "decision": "legal",
     "confidence": 1,
-    "updated_at": "2026-09-23T19:21:25.136297+00:00"
+    "updated_at": "2026-09-23T20:47:01.316867+00:00"
+  },
+  "A6RW-BSJN": {
+    "code": "A6RW-BSJN",
+    "name": "CubicMadness II",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T19:30:14.398508+00:00"
+  },
+  "2B5D-RJJ3": {
+    "code": "2B5D-RJJ3",
+    "name": "Aliens Magnific Ion boomz",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T19:33:44.580361+00:00"
+  },
+  "8U56-UWJZ": {
+    "code": "8U56-UWJZ",
+    "name": "Collapsing Coral Cave",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T19:35:38.470545+00:00"
+  },
+  "N1NP-XP8A": {
+    "code": "N1NP-XP8A",
+    "name": "Ragnarök",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T19:38:50.097892+00:00"
+  },
+  "7P6C-EW81": {
+    "code": "7P6C-EW81",
+    "name": "Downtown Neon",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T19:49:09.850893+00:00"
+  },
+  "9DY0-UE6E": {
+    "code": "9DY0-UE6E",
+    "name": "Through The Leaves",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:01:23.688210+00:00"
+  },
+  "B2BJ-M7EV": {
+    "code": "B2BJ-M7EV",
+    "name": "Bowsers Castle",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:09:41.237150+00:00"
+  },
+  "2XAY-GPEY": {
+    "code": "2XAY-GPEY",
+    "name": "Romulus A",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:11:17.807662+00:00"
+  },
+  "7CZR-HMXE": {
+    "code": "7CZR-HMXE",
+    "name": "The Other Side",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T20:17:05.141008+00:00"
+  },
+  "CNYT-2UBJ": {
+    "code": "CNYT-2UBJ",
+    "name": "Warped",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T20:20:25.745483+00:00"
+  },
+  "RHV8-PBT0": {
+    "code": "RHV8-PBT0",
+    "name": "Ancient Aqueduct",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:22:08.683396+00:00"
+  },
+  "Z178-S814": {
+    "code": "Z178-S814",
+    "name": "Jazz bar v4",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T20:24:51.426466+00:00"
+  },
+  "SD3M-TCZ2": {
+    "code": "SD3M-TCZ2",
+    "name": "New York Network",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:27:23.389263+00:00"
+  },
+  "28BF-0G84": {
+    "code": "28BF-0G84",
+    "name": "Magmatic Ravine",
+    "decision": "legal",
+    "confidence": 3,
+    "updated_at": "2026-09-23T20:29:29.645682+00:00"
+  },
+  "BAH3-HEH5": {
+    "code": "BAH3-HEH5",
+    "name": "Urban Explorers",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:37:58.522652+00:00"
+  },
+  "DNAX-RGJH": {
+    "code": "DNAX-RGJH",
+    "name": "Spellbinding",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T20:41:58.884787+00:00"
+  },
+  "JF26-CJJX": {
+    "code": "JF26-CJJX",
+    "name": "Son City",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:42:28.073781+00:00"
+  },
+  "3YU9-19HC": {
+    "code": "3YU9-19HC",
+    "name": "Replicate",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:43:49.730715+00:00"
+  },
+  "M3MU-NEHY": {
+    "code": "M3MU-NEHY",
+    "name": "◅●◤",
+    "decision": "legal",
+    "confidence": 3,
+    "updated_at": "2026-09-23T20:44:11.876955+00:00"
+  },
+  "JC3M-D2A4": {
+    "code": "JC3M-D2A4",
+    "name": "Shlumpsk",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T20:49:39.886291+00:00"
+  },
+  "YNWU-WSH5": {
+    "code": "YNWU-WSH5",
+    "name": "En Passant",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T20:51:46.212044+00:00"
+  },
+  "M319-0FHP": {
+    "code": "M319-0FHP",
+    "name": "Infernal Cavern",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T20:59:59.653262+00:00"
+  },
+  "2MN7-V017": {
+    "code": "2MN7-V017",
+    "name": "Homewrack",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T21:01:45.216012+00:00"
+  },
+  "C3V0-X54F": {
+    "code": "C3V0-X54F",
+    "name": "Ancient Quarry",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T21:04:55.438306+00:00"
+  },
+  "9PZ4-6X2T": {
+    "code": "9PZ4-6X2T",
+    "name": "North Sector",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:06:07.210867+00:00"
+  },
+  "H5EJ-RRG3": {
+    "code": "H5EJ-RRG3",
+    "name": "Losing it",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:06:28.474134+00:00"
+  },
+  "EB5Y-59ED": {
+    "code": "EB5Y-59ED",
+    "name": "Antiquity",
+    "decision": "legal",
+    "confidence": 3,
+    "updated_at": "2026-09-23T21:06:36.643725+00:00"
+  },
+  "RHJP-XES7": {
+    "code": "RHJP-XES7",
+    "name": "Red Autumn",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:06:51.788373+00:00"
+  },
+  "VSUH-F6SM": {
+    "code": "VSUH-F6SM",
+    "name": "guide voodoo doll",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T21:07:18.341253+00:00"
+  },
+  "MVWE-GFSR": {
+    "code": "MVWE-GFSR",
+    "name": "Magma Islands",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:07:31.820872+00:00"
+  },
+  "T340-NDNR": {
+    "code": "T340-NDNR",
+    "name": "Flicker",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:09:44.146913+00:00"
+  },
+  "F9S5-AM4H": {
+    "code": "F9S5-AM4H",
+    "name": "Pestilence",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:10:17.859363+00:00"
+  },
+  "PK9G-DGDW": {
+    "code": "PK9G-DGDW",
+    "name": "Splatter",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:11:37.413038+00:00"
+  },
+  "FDKJ-8ABR": {
+    "code": "FDKJ-8ABR",
+    "name": "Ozymandias",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T21:12:37.350111+00:00"
+  },
+  "UC0S-SK7G": {
+    "code": "UC0S-SK7G",
+    "name": "Virtual Notion",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:15:33.544672+00:00"
+  },
+  "616E-BBT8": {
+    "code": "616E-BBT8",
+    "name": "Brilliant Move",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:18:52.392975+00:00"
+  },
+  "9Z8J-3T1B": {
+    "code": "9Z8J-3T1B",
+    "name": "Natures Toy Car",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:20:32.665294+00:00"
+  },
+  "1PF8-8YRV": {
+    "code": "1PF8-8YRV",
+    "name": "Goopy-goopy factory",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:23:18.408301+00:00"
+  },
+  "A154-3M63": {
+    "code": "A154-3M63",
+    "name": "Terrible Tomes",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:25:38.266140+00:00"
+  },
+  "U6B0-8CWU": {
+    "code": "U6B0-8CWU",
+    "name": "Flooded Hideout",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:29:15.525219+00:00"
+  },
+  "V9A8-TGAW": {
+    "code": "V9A8-TGAW",
+    "name": "Deforestation",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:30:56.504997+00:00"
+  },
+  "9YJH-K2XP": {
+    "code": "9YJH-K2XP",
+    "name": "BerryMilk Mania",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:31:43.846169+00:00"
+  },
+  "B390-P2KM": {
+    "code": "B390-P2KM",
+    "name": "Frutiger Aero",
+    "decision": "legal",
+    "confidence": 1,
+    "updated_at": "2026-09-23T21:35:55.156506+00:00"
+  },
+  "SV89-ZJ9U": {
+    "code": "SV89-ZJ9U",
+    "name": "Stormterrors Lair",
+    "decision": "legal",
+    "confidence": 2,
+    "updated_at": "2026-09-23T21:39:22.936828+00:00"
   }
 }

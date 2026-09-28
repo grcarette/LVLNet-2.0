@@ -10,41 +10,56 @@ class ReactionHandler:
         self.arbiter_role_name = "Level Arbiter"
         self.target_emoji = "✅"
 
-        self.bot.add_listener(self.on_reaction_add)
-        self.bot.add_listener(self.on_reaction_remove)
+        # Raw events rather than on_reaction_add/remove: those only fire for
+        # messages in the cache, and reaction_remove is only dispatched when the
+        # user is in the member cache — which needs the privileged members intent.
+        self.bot.add_listener(self.on_raw_reaction_add)
+        self.bot.add_listener(self.on_raw_reaction_remove)
 
-    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
-        await self.handle_reaction_change(reaction, user, set_legal=True)
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        await self.handle_reaction_change(payload, set_legal=True)
 
-    async def on_reaction_remove(self, reaction: discord.Reaction, user: discord.User):
-        await self.handle_reaction_change(reaction, user, set_legal=False)
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
+        await self.handle_reaction_change(payload, set_legal=False)
 
-    async def handle_reaction_change(self, reaction: discord.Reaction, user: discord.User, set_legal: bool):
-        if user.bot:
+    async def handle_reaction_change(self, payload: discord.RawReactionActionEvent, set_legal: bool):
+        if payload.guild_id is None or str(payload.emoji) != self.target_emoji:
             return
 
-        channel = reaction.message.channel
-        forum_id = channel.id if not getattr(channel, 'parent', None) else channel.parent.id
-        if forum_id != self.allowed_channel_id:
-            return  
-        
-        guild = reaction.message.guild
-        member = guild.get_member(user.id)
+        guild = self.bot.get_guild(payload.guild_id)
+        if guild is None:
+            return
+
+        channel = guild.get_channel_or_thread(payload.channel_id)
+        if channel is None:
+            # Archived forum posts aren't cached
+            try:
+                channel = await self.bot.fetch_channel(payload.channel_id)
+            except discord.HTTPException:
+                return
+        if not isinstance(channel, discord.Thread) or channel.parent_id != self.allowed_channel_id:
+            return
+
+        # Adds carry the member (with roles) in the payload; removes don't, so
+        # fetch it — fetch_member is a plain API call and needs no intent.
+        member = payload.member
+        if member is None:
+            try:
+                member = await guild.fetch_member(payload.user_id)
+            except discord.HTTPException:
+                return
+        if member.bot:
+            return
+
         arbiter_role = discord.utils.get(guild.roles, name=self.arbiter_role_name)
         if arbiter_role not in member.roles:
             return
-    
-        if str(reaction.emoji) != self.target_emoji:
-            return
 
-        level_code = self.extract_level_code(reaction.message)
+        level_code = self.extract_level_code(channel)
         if not level_code:
             return
-        
+
         await self.bot.lh.set_tourney_legality(level_code, set_legal)
 
-    def extract_level_code(self, message: discord.Message) -> str:
-        if isinstance(message.channel, discord.Thread):
-            title = message.channel.name
-            return title[:9] 
-        return None
+    def extract_level_code(self, thread: discord.Thread) -> str:
+        return thread.name[:9]
